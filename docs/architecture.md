@@ -1,0 +1,2 @@
+# Architecture
+Next.js App Router renders the shell and server pages. Server actions perform demo authorization and strict Zod parsing. `AIService` abstracts GPT-5.6 Responses API access and permits deterministic test/local behavior. `Repository` separates lifecycle logic from persistence; its in-memory implementation supports tests and the supplied Supabase schema defines durable production storage. Create produces Agent + INITIAL_MANIFEST v1 + CREATE event as an atomic conceptual operation. Domain and transfer tables are forward-compatible but unused in Phase 1.
