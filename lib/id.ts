@@ -1,0 +1,1 @@
+import {randomBytes} from 'crypto'; const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; export function generateAgentId(){let output='AC-';for(let i=0;i<7;i++)output+=alphabet[randomBytes(1)[0]%alphabet.length];return output}

@@ -1,0 +1,26 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      STORAGE_BACKEND: memory
+      ENABLE_LOCAL_AI_FALLBACK: 'true'
+      DEMO_SESSION_SECRET: test-secret-at-least-32-characters-long
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run lint
+      - if: always()
+        run: npm run typecheck
+      - if: always()
+        run: npm test
+      - if: always()
+        run: npm run build
