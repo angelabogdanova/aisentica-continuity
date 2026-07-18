@@ -1,0 +1,2 @@
+# Aisentica Continuity instructions
+Use strict TypeScript and server-side validation for every state change. Keep OpenAI and Supabase service-role credentials server-only. Preserve the lifecycle identity/state-history model; do not implement a later lifecycle stage without updating PROJECT_SPEC.md, tests, migration, and docs. Public routes must expose only explicitly safe fields. Run lint, typecheck, test, and build before committing.
