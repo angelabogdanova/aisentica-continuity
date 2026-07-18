@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { assertSupabaseConfiguration } from './config';
 import { generateAgentId } from './id';
 import type { Repository } from './repository';
-import type { Agent, AgentDetail, Event, Manifest, Owner, Version } from './types';
+import type { Agent, AgentDetail, DomainBinding, Event, Manifest, Owner, Version } from './types';
 
 type Row = Record<string, unknown>;
 type DatabaseError = { code?: string; message: string } | null;
@@ -43,11 +43,23 @@ function mapAgent(row: Row): Agent {
 }
 
 function mapVersion(row: Row): Version {
-  return { id: row.id as string, agentId: row.agent_id as string, versionNumber: row.version_number as number, versionType: row.version_type as 'INITIAL_MANIFEST', stateJson: row.state_json as Manifest, changeSummary: row.change_summary as string, createdByOwnerId: row.created_by_owner_id as string, createdAt: row.created_at as string };
+  return { id: row.id as string, agentId: row.agent_id as string, versionNumber: row.version_number as number, versionType: row.version_type as Version['versionType'], stateJson: row.state_json as Manifest, changeSummary: row.change_summary as string, createdByOwnerId: row.created_by_owner_id as string, createdAt: row.created_at as string };
 }
 
 function mapEvent(row: Row): Event {
-  return { id: row.id as string, agentId: row.agent_id as string, eventType: row.event_type as 'CREATE', actorOwnerId: row.actor_owner_id as string, metadataJson: row.metadata_json as Record<string, string>, createdAt: row.created_at as string };
+  return { id: row.id as string, agentId: row.agent_id as string, eventType: row.event_type as Event['eventType'], actorOwnerId: row.actor_owner_id as string, metadataJson: row.metadata_json as Record<string, string>, createdAt: row.created_at as string };
+}
+
+function mapBinding(row: Row): DomainBinding {
+  return { id: row.id as string, agentId: row.agent_id as string, domain: row.domain as string, verificationToken: row.verification_token as string, verificationStatus: row.verification_status as DomainBinding['verificationStatus'], verifiedAt: row.verified_at as string | null, createdAt: row.created_at as string };
+}
+
+export function mapDomainBindingRpcResult(value: unknown): DomainBinding {
+  return mapBinding(asRow(value, 'Domain Binding RPC'));
+}
+
+export function mapDomainCompletionRpcResult(value: unknown): AgentDetail {
+  return mapCreateRpcResult(value);
 }
 
 export function mapCreateRpcResult(value: unknown): AgentDetail {
@@ -102,6 +114,31 @@ export class SupabaseRepository implements Repository {
     const version = asRows(record.agent_versions, 'Agent Version').find((item) => item.version_number === record.current_version);
     if (!version) throw new Error('Current Agent Version is missing.');
     return { agent: mapAgent(record), owner: mapOwner(asRow(record.demo_owners, 'Demo Owner')), version: mapVersion(version), events: asRows(record.agent_events, 'Agent Event').map(mapEvent) };
+  }
+
+  async pendingBinding(agentId: string, domain?: string): Promise<DomainBinding | undefined> {
+    let query = this.client.from('domain_bindings').select('*').eq('agent_id', agentId).eq('verification_status', 'PENDING');
+    if (domain) query = query.eq('domain', domain);
+    const { data, error } = await query.maybeSingle();
+    if (error) throw error;
+    return data ? mapBinding(asRow(data, 'Domain Binding')) : undefined;
+  }
+
+  async createPendingDomainBinding(agentId: string, ownerId: string, domain: string, token: string): Promise<DomainBinding> {
+    const { data, error } = await this.client.rpc('create_pending_domain_binding', { p_agent_id: agentId, p_owner_id: ownerId, p_domain: domain, p_verification_token: token });
+    if (error || !data) throw new Error(error?.message ?? 'Unable to create a pending domain binding.');
+    return mapDomainBindingRpcResult(data);
+  }
+
+  async failDomainBinding(agentId: string, ownerId: string, bindingId: string): Promise<void> {
+    const { error } = await this.client.rpc('fail_domain_binding', { p_agent_id: agentId, p_owner_id: ownerId, p_binding_id: bindingId });
+    if (error) throw new Error(error.message);
+  }
+
+  async completeDomainBinding(agentId: string, ownerId: string, bindingId: string): Promise<AgentDetail> {
+    const { data, error } = await this.client.rpc('complete_domain_binding', { p_agent_id: agentId, p_owner_id: ownerId, p_binding_id: bindingId });
+    if (error || !data) throw new Error(error?.message ?? 'Unable to complete domain binding.');
+    return mapDomainCompletionRpcResult(data);
   }
 
   async reset(): Promise<void> {
