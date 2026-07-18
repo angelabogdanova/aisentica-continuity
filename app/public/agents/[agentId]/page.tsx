@@ -1,0 +1,1 @@
+import {notFound} from 'next/navigation'; import {repository} from '@/lib/repository'; import {AgentDetailView} from '@/components/agent-detail'; export default async function PublicAgent({params}:{params:Promise<{agentId:string}>}){const d=await repository.detail((await params).agentId);if(!d)notFound();return <AgentDetailView detail={d} privateView={false}/>}
