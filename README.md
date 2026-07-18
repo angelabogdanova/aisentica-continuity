@@ -38,3 +38,6 @@ Cookies are signed and HTTP-only; modifying actions require a server owner. Publ
 
 ## OpenAI Build Week
 This repository delivers the Phase 1 working foundation. Codex accelerated scaffolding, validation, testing, and documentation; humans directed the product boundary, lifecycle semantics, public/private separation, and deliberate exclusion of transfers, payments, and marketplaces.
+
+## Stabilization notes
+Storage selection is explicit: use `STORAGE_BACKEND=supabase` for deployed environments, with both Supabase variables configured. `STORAGE_BACKEND=memory` is temporary local/test storage only and is visibly labelled in the dashboard. Production refuses an unspecified backend. Apply migrations in order, including `002_atomic_create.sql`; its RPC atomically creates the Agent, initial version, and CREATE event. `DEMO_SESSION_SECRET` is required to be at least 32 characters in production.

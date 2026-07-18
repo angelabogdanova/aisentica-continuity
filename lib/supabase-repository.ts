@@ -1,4 +1,46 @@
-import {createClient} from '@supabase/supabase-js'; import {randomUUID} from 'crypto'; import {generateAgentId} from './id'; import type {Agent,AgentDetail,Event,Manifest,Owner,Version} from './types'; import type {Repository} from './repository';
-const client=()=>createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.SUPABASE_SERVICE_ROLE_KEY!);
-const owner=(r:Record<string,unknown>):Owner=>({id:r.id as string,displayName:r.display_name as string,slug:r.slug as string,createdAt:r.created_at as string}); const agent=(r:Record<string,unknown>):Agent=>({id:r.id as string,canonicalName:r.canonical_name as string,role:r.role as string,purpose:r.purpose as string,field:r.field as string,ownerId:r.owner_id as string,status:r.status as 'ACTIVE',canonicalDomain:r.canonical_domain as string|null,currentVersion:r.current_version as number,createdAt:r.created_at as string,updatedAt:r.updated_at as string});
-/** Server-only production adapter. Database FK/cascade constraints protect lifecycle records. */ export class SupabaseRepository implements Repository {async owners(){const {data,error}=await client().from('demo_owners').select('*').order('slug');if(error)throw error;return (data||[]).map(owner)}async owner(id:string){const {data,error}=await client().from('demo_owners').select('*').eq('id',id).maybeSingle();if(error)throw error;return data?owner(data):undefined}async create(ownerId:string,m:Manifest){const now=new Date().toISOString();const id=generateAgentId();const a={id,canonical_name:m.canonicalName,role:m.role,purpose:m.purpose,field:m.field,owner_id:ownerId,status:'ACTIVE',current_version:1,created_at:now,updated_at:now};const {error:ae}=await client().from('agents').insert(a);if(ae)throw new Error(`Unable to persist agent: ${ae.message}`);const version={id:randomUUID(),agent_id:id,version_number:1,version_type:'INITIAL_MANIFEST' as const,state_json:m,change_summary:'Initial Agent Manifest created.',created_by_owner_id:ownerId,created_at:now};const event={id:randomUUID(),agent_id:id,event_type:'CREATE' as const,actor_owner_id:ownerId,metadata_json:{version:'1'},created_at:now};const {error:ve}=await client().from('agent_versions').insert(version);const {error:ee}=await client().from('agent_events').insert(event);if(ve||ee){await client().from('agents').delete().eq('id',id);throw new Error(`Unable to persist lifecycle state: ${(ve||ee)?.message}`)}return {agent:agent({...a,canonical_domain:null}),owner:(await this.owner(ownerId))!,version:{id:version.id,agentId:id,versionNumber:1,versionType:'INITIAL_MANIFEST',stateJson:m,changeSummary:version.change_summary,createdByOwnerId:ownerId,createdAt:now},events:[{id:event.id,agentId:id,eventType:'CREATE',actorOwnerId:ownerId,metadataJson:event.metadata_json,createdAt:now}]}}async byOwner(ownerId:string){const {data,error}=await client().from('agents').select('*').eq('owner_id',ownerId).order('created_at',{ascending:false});if(error)throw error;return(data||[]).map(agent)}async detail(id:string){const {data,error}=await client().from('agents').select('*, demo_owners(*), agent_versions(*), agent_events(*)').eq('id',id).maybeSingle();if(error)throw error;if(!data)return;const versions=data.agent_versions as Record<string,unknown>[];const v=versions.find(x=>x.version_number===data.current_version)!;return {agent:agent(data),owner:owner(data.demo_owners as Record<string,unknown>),version:{id:v.id as string,agentId:id,versionNumber:v.version_number as number,versionType:v.version_type as 'INITIAL_MANIFEST',stateJson:v.state_json as Manifest,changeSummary:v.change_summary as string,createdByOwnerId:v.created_by_owner_id as string,createdAt:v.created_at as string},events:(data.agent_events as Record<string,unknown>[]).map(e=>({id:e.id as string,agentId:id,eventType:e.event_type as 'CREATE',actorOwnerId:e.actor_owner_id as string,metadataJson:e.metadata_json as Record<string,string>,createdAt:e.created_at as string}))}}async reset(){const db=client();const {error}=await db.from('agents').delete().neq('id','');if(error)throw error}}
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { assertSupabaseConfiguration } from './config';
+import { generateAgentId } from './id';
+import type { Repository } from './repository';
+import type { Agent, AgentDetail, Event, Manifest, Owner, Version } from './types';
+
+type Row = Record<string, unknown>;
+type RpcClient = Pick<SupabaseClient, 'from' | 'rpc'>;
+
+function mapOwner(row: Row): Owner { return { id: row.id as string, displayName: row.display_name as string, slug: row.slug as string, createdAt: row.created_at as string }; }
+function mapAgent(row: Row): Agent { return { id: row.id as string, canonicalName: row.canonical_name as string, role: row.role as string, purpose: row.purpose as string, field: row.field as string, ownerId: row.owner_id as string, status: row.status as 'ACTIVE', canonicalDomain: row.canonical_domain as string | null, currentVersion: row.current_version as number, createdAt: row.created_at as string, updatedAt: row.updated_at as string }; }
+function mapVersion(row: Row): Version { return { id: row.id as string, agentId: row.agent_id as string, versionNumber: row.version_number as number, versionType: row.version_type as 'INITIAL_MANIFEST', stateJson: row.state_json as Manifest, changeSummary: row.change_summary as string, createdByOwnerId: row.created_by_owner_id as string, createdAt: row.created_at as string }; }
+function mapEvent(row: Row): Event { return { id: row.id as string, agentId: row.agent_id as string, eventType: row.event_type as 'CREATE', actorOwnerId: row.actor_owner_id as string, metadataJson: row.metadata_json as Record<string, string>, createdAt: row.created_at as string }; }
+
+export function mapCreateRpcResult(row: Row): AgentDetail {
+  return { agent: mapAgent(row.agent as Row), owner: mapOwner(row.owner as Row), version: mapVersion(row.version as Row), events: [mapEvent(row.event as Row)] };
+}
+
+export class SupabaseRepository implements Repository {
+  private readonly client: RpcClient;
+
+  constructor(client?: RpcClient) {
+    if (client) this.client = client;
+    else {
+      assertSupabaseConfiguration();
+      this.client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    }
+  }
+
+  async owners() { const { data, error } = await this.client.from('demo_owners').select('*').order('slug'); if (error) throw error; return (data ?? []).map(mapOwner); }
+  async owner(id: string) { const { data, error } = await this.client.from('demo_owners').select('*').eq('id', id).maybeSingle(); if (error) throw error; return data ? mapOwner(data) : undefined; }
+
+  async create(ownerId: string, manifest: Manifest): Promise<AgentDetail> {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { data, error } = await this.client.rpc('create_agent_with_initial_state', { p_agent_id: generateAgentId(), p_owner_id: ownerId, p_manifest: manifest });
+      if (!error && data) return mapCreateRpcResult(data as Row);
+      if (error?.code === '23505' && attempt < 2) continue;
+      throw new Error(error?.code === 'P0001' ? error.message : `Unable to persist agent: ${error?.message ?? 'empty RPC response'}`);
+    }
+    throw new Error('Unable to allocate a unique Agent ID.');
+  }
+
+  async byOwner(ownerId: string) { const { data, error } = await this.client.from('agents').select('*').eq('owner_id', ownerId).order('created_at', { ascending: false }); if (error) throw error; return (data ?? []).map(mapAgent); }
+  async detail(id: string): Promise<AgentDetail | undefined> { const { data, error } = await this.client.from('agents').select('*, demo_owners(*), agent_versions(*), agent_events(*)').eq('id', id).maybeSingle(); if (error) throw error; if (!data) return undefined; const version = (data.agent_versions as Row[]).find((item) => item.version_number === data.current_version); if (!version) throw new Error('Current Agent Version is missing.'); return { agent: mapAgent(data), owner: mapOwner(data.demo_owners as Row), version: mapVersion(version), events: (data.agent_events as Row[]).map(mapEvent) }; }
+  async reset() { const { error } = await this.client.from('agents').delete().neq('id', ''); if (error) throw error; }
+}
