@@ -1,11 +1,13 @@
 'use server';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { aiService } from '@/lib/ai';
 import { requireOwner, sessionCookieName, signOwner } from '@/lib/auth';
 import { createAgentLifecycle } from '@/lib/create-agent';
 import { repository } from '@/lib/repository';
+import { bindCurrentDomain } from '@/lib/bind-domain';
+import { SameOriginHttpsDomainVerificationService } from '@/lib/domain-verification';
 
 export type CreateState = { error?: string };
 
@@ -35,6 +37,23 @@ export async function createAgent(_previous: CreateState, formData: FormData): P
     agentId = await createAgentLifecycle(Object.fromEntries(formData), owner.id, { ai: aiService, repository });
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Unable to create the agent.' };
+  }
+  redirect(`/agents/${agentId}`);
+}
+
+export type BindDomainState = { error?: string };
+
+export async function bindDomain(_previous: BindDomainState, formData: FormData): Promise<BindDomainState> {
+  let agentId: string;
+  try {
+    const owner = await requireOwner();
+    agentId = String(formData.get('agentId'));
+    await bindCurrentDomain(agentId, owner.id, (await headers()).get('host'), {
+      repository,
+      verifier: new SameOriginHttpsDomainVerificationService(),
+    });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Domain verification failed.' };
   }
   redirect(`/agents/${agentId}`);
 }

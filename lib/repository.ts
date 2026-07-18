@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { storageBackend } from './config';
 import { generateAgentId } from './id';
 import { SupabaseRepository } from './supabase-repository';
-import type { Agent, AgentDetail, Event, Manifest, Owner, Version } from './types';
+import type { Agent, AgentDetail, DomainBinding, Event, Manifest, Owner, Version } from './types';
 
 export interface Repository {
   owners(): Promise<Owner[]>;
@@ -10,6 +10,10 @@ export interface Repository {
   create(ownerId: string, manifest: Manifest): Promise<AgentDetail>;
   byOwner(ownerId: string): Promise<Agent[]>;
   detail(id: string): Promise<AgentDetail | undefined>;
+  pendingBinding(agentId: string, domain?: string): Promise<DomainBinding | undefined>;
+  createPendingDomainBinding(agentId: string, ownerId: string, domain: string, token: string): Promise<DomainBinding>;
+  failDomainBinding(agentId: string, ownerId: string, bindingId: string): Promise<void>;
+  completeDomainBinding(agentId: string, ownerId: string, bindingId: string): Promise<AgentDetail>;
   reset(): Promise<void>;
 }
 
@@ -22,6 +26,7 @@ export class MemoryRepository implements Repository {
   private agents: Agent[] = [];
   private versions: Version[] = [];
   private events: Event[] = [];
+  private bindings: DomainBinding[] = [];
 
   async owners() { return demoOwners; }
   async owner(id: string) { return demoOwners.find((owner) => owner.id === id); }
@@ -40,7 +45,44 @@ export class MemoryRepository implements Repository {
 
   async byOwner(ownerId: string) { return this.agents.filter((agent) => agent.ownerId === ownerId); }
   async detail(id: string) { const agent = this.agents.find((item) => item.id === id); if (!agent) return undefined; return { agent, owner: demoOwners.find((owner) => owner.id === agent.ownerId)!, version: this.versions.find((item) => item.agentId === id && item.versionNumber === agent.currentVersion)!, events: this.events.filter((item) => item.agentId === id) }; }
-  async reset() { this.agents = []; this.versions = []; this.events = []; }
+
+  async pendingBinding(agentId: string, domain?: string) { return this.bindings.find((binding) => binding.agentId === agentId && binding.verificationStatus === 'PENDING' && (!domain || binding.domain === domain)); }
+
+  async createPendingDomainBinding(agentId: string, ownerId: string, domain: string, token: string): Promise<DomainBinding> {
+    const agent = this.agents.find((item) => item.id === agentId);
+    if (!agent) throw new Error('Agent not found.');
+    if (agent.ownerId !== ownerId) throw new Error('You are not authorized to bind this agent.');
+    if (agent.canonicalDomain) throw new Error('This agent already has a verified domain.');
+    this.bindings = this.bindings.filter((item) => !(item.agentId === agentId && item.verificationStatus !== 'VERIFIED'));
+    const binding: DomainBinding = { id: randomUUID(), agentId, domain, verificationToken: token, verificationStatus: 'PENDING', verifiedAt: null, createdAt: new Date().toISOString() };
+    this.bindings.push(binding);
+    return binding;
+  }
+
+  async failDomainBinding(agentId: string, ownerId: string, bindingId: string): Promise<void> {
+    const agent = this.agents.find((item) => item.id === agentId);
+    const binding = this.bindings.find((item) => item.id === bindingId && item.agentId === agentId);
+    if (!agent || agent.ownerId !== ownerId || !binding) throw new Error('Domain binding is not authorized.');
+    if (binding.verificationStatus === 'PENDING') binding.verificationStatus = 'FAILED';
+  }
+
+  async completeDomainBinding(agentId: string, ownerId: string, bindingId: string): Promise<AgentDetail> {
+    const agent = this.agents.find((item) => item.id === agentId);
+    const binding = this.bindings.find((item) => item.id === bindingId && item.agentId === agentId);
+    if (!agent || agent.ownerId !== ownerId || !binding) throw new Error('Domain binding is not authorized.');
+    if (binding.verificationStatus !== 'PENDING') throw new Error('Domain binding is not pending.');
+    if (this.bindings.some((item) => item.domain === binding.domain && item.verificationStatus === 'VERIFIED')) throw new Error('This domain is already bound to an agent.');
+    const initial = this.versions.find((item) => item.agentId === agentId && item.versionNumber === 1);
+    if (!initial || agent.currentVersion !== 1) throw new Error('Agent cannot enter Domain Binding from its current state.');
+    const now = new Date().toISOString();
+    binding.verificationStatus = 'VERIFIED'; binding.verifiedAt = now; agent.canonicalDomain = binding.domain; agent.currentVersion = 2; agent.updatedAt = now;
+    const version: Version = { id: randomUUID(), agentId, versionNumber: 2, versionType: 'DOMAIN_BINDING', stateJson: { ...initial.stateJson, canonicalDomain: binding.domain, domainVerificationStatus: 'VERIFIED', domainVerifiedAt: now }, changeSummary: `Verified canonical domain ${binding.domain}.`, createdByOwnerId: ownerId, createdAt: now };
+    const event: Event = { id: randomUUID(), agentId, eventType: 'BIND_DOMAIN', actorOwnerId: ownerId, metadataJson: { domain: binding.domain, version: '2' }, createdAt: now };
+    this.versions.push(version); this.events.push(event);
+    return { agent, owner: demoOwners.find((item) => item.id === ownerId)!, version, events: this.events.filter((item) => item.agentId === agentId) };
+  }
+
+  async reset() { this.agents = []; this.versions = []; this.events = []; this.bindings = []; }
 }
 
 export function createConfiguredRepository(): Repository {
