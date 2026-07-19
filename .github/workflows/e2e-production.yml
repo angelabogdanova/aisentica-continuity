@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      E2E_TARGET_URL: https://aisentica-continuity.vercel.app
+      E2E_TARGET_URL: https://aisentica-continuity-sitelightingluxe-3643s-projects.vercel.app
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
