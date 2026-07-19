@@ -137,6 +137,7 @@ describe('Park lifecycle', () => {
       bindDomain: true,
       develop: true,
       park: true,
+      reactivate: false,
     });
   });
 });
