@@ -1,18 +1,52 @@
 # Judge flow
 
-1. Select Owner A and open Atlas.
-2. Inspect the same Agent ID, verified canonical domain, and immutable Version History.
-3. Confirm `CREATE`, `BIND_DOMAIN`, `DEVELOP`, `PARK`, and `REACTIVATE` in the event trail.
-4. In **Transfer Atlas**, use the example private handoff summary and create the offer for Owner B.
-5. Confirm the private transfer page identifies the same Agent and exact source version, shows a 15-minute expiry, and requires Owner B.
-6. Select Owner B through the transfer page and accept the single-use offer.
-7. Confirm the same Atlas ID moves to Owner B as the next sequential `TRANSFERRED` version, status becomes `TRANSFERRED`, and exactly one `TRANSFER` event appears.
-8. Confirm Owner A no longer sees Atlas privately and Owner B does.
-9. Confirm Versions 1 through the Reactivate checkpoint remain unchanged, including Manifest, verified domain, Development Record, Park Record, and Reactivation Record.
-10. In **Continue Atlas**, use the continuation example and submit.
-11. Confirm the next sequential version is `CONTINUED`, status returns to `ACTIVE`, exactly one `CONTINUE` event appears, and all seven lifecycle tiles are completed.
-12. Confirm the successor owner can Develop again after Continue.
-13. Open the public card and confirm it shows safe public identity, verified domain, public development summary, ACTIVE status, and generic transfer/continuation badges—not owner identity, token material, handoff summary, or continuation objective.
-14. Confirm the accepted token cannot be reused.
+## Recommended inspection path
 
-Do not reset production. Production reset is disabled.
+The production Atlas trajectory is already complete and should be inspected without mutation.
+
+1. Open the public card: https://aisentica-continuity.vercel.app/public/agents/AC-7XUEZ42
+2. Confirm:
+   - Agent ID `AC-7XUEZ42`;
+   - State Version 7;
+   - status `ACTIVE`;
+   - verified canonical domain `aisentica-continuity.vercel.app`;
+   - developed-state, reactivation, transfer, and continuation badges;
+   - owner shown only as `Not disclosed`.
+3. Open Demo access: https://aisentica-continuity.vercel.app/demo
+4. Select **Owner B**. Atlas belongs to Owner B after the completed transfer.
+5. Open Atlas from the dashboard.
+6. Inspect the immutable Version History:
+   - Version 1 — `INITIAL_MANIFEST`;
+   - Version 2 — `DOMAIN_BINDING`;
+   - Version 3 — `DEVELOPMENT`;
+   - Version 4 — `PARKED`;
+   - Version 5 — `REACTIVATED`;
+   - Version 6 — `TRANSFERRED`;
+   - Version 7 — `CONTINUED`.
+7. Inspect the event trail and confirm exactly one event for each lifecycle stage:
+   - `CREATE`;
+   - `BIND_DOMAIN`;
+   - `DEVELOP`;
+   - `PARK`;
+   - `REACTIVATE`;
+   - `TRANSFER`;
+   - `CONTINUE`.
+8. Confirm Versions 1–5 remain preserved after Transfer and Version 6 remains preserved after Continue.
+9. Confirm the same Agent ID, canonical domain, Manifest, Development Record, parked checkpoint, and complete prior history remain present under Owner B.
+10. Return to the public card and confirm it does not expose:
+    - Owner A or Owner B identity;
+    - private parking or reactivation reasons;
+    - raw transfer token or token hash;
+    - handoff summary;
+    - continuation objective;
+    - complete private structured state.
+
+## Independent full-path evidence
+
+A clean GitHub-hosted Chromium runner used Playwright to click the complete production lifecycle through the real UI on July 19, 2026. It created a separate test Agent, completed all seven stages, verified the public projection, and reported zero browser errors. The test Agent was removed afterwards and Atlas remained unchanged.
+
+See [`e2e-verification.md`](e2e-verification.md).
+
+## Important
+
+Do not reset or mutate the production demonstration during judging. Production reset is disabled. The private Owner B view is provided for inspection of the completed trajectory, not for changing Atlas.
