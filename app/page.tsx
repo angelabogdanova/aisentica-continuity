@@ -1,2 +1,32 @@
-import Link from 'next/link'; import {Lifecycle} from '@/components/lifecycle';
-export default function Home(){return <main className="mx-auto max-w-6xl px-5 py-16 sm:py-24"><p className="eyebrow">Developer tools / persistent agents</p><h1 className="mt-5 max-w-4xl text-5xl font-bold tracking-tight sm:text-7xl">Domain-Anchored Continuity for Transferable AI Agents.</h1><p className="mt-7 max-w-2xl text-lg leading-8 text-zinc-400">Aisentica turns an AI agent into a domain-anchored, persistent, transferable digital asset. Create its identity and preserve a verifiable state trajectory.</p><div className="mt-9 flex gap-3"><Link href="/demo" className="btn">Enter the demo</Link><a href="#lifecycle" className="btn-muted">View lifecycle</a></div><section id="lifecycle" className="card mt-16"><p className="eyebrow">Canonical lifecycle</p><div className="mt-4"><Lifecycle/></div><p className="mt-6 max-w-xl text-zinc-300">“An agent is not transferred as a copy. Its identity, state history, and trajectory continue.”</p></section></main>}
+import Link from 'next/link';
+import { Lifecycle } from '@/components/lifecycle';
+
+export default function Home() {
+  return <main>
+    <section className="site-shell hero">
+      <div className="hero-space" aria-hidden="true" />
+      <div className="hero-content">
+        <p className="eyebrow">Developer tools / persistent agents</p>
+        <h1 className="hero-title"><span>Aisentica</span><span>Continuity</span></h1>
+        <p className="hero-deck">Domain-Anchored Continuity for Transferable AI Agents</p>
+        <p className="hero-copy">Aisentica turns an AI agent into a domain-anchored, persistent, transferable digital asset. Create its identity and preserve a verifiable state trajectory.</p>
+        <div className="hero-actions">
+          <Link href="/demo" className="btn">Enter the demo</Link>
+          <a href="#lifecycle" className="btn-muted">View lifecycle</a>
+        </div>
+        <p className="manifest-quote">An agent is not transferred as a copy. Its identity, state history, and trajectory continue.</p>
+      </div>
+    </section>
+
+    <section id="lifecycle" className="site-shell editorial-section">
+      <div className="editorial-heading">
+        <p className="eyebrow">Canonical lifecycle</p>
+        <div>
+          <h2>Create to Continue</h2>
+          <p>Seven state transitions preserve one public Agent identity across development, dormancy, transfer, and successor ownership.</p>
+        </div>
+      </div>
+      <Lifecycle />
+    </section>
+  </main>;
+}

@@ -1,1 +1,16 @@
-import {requireOwner} from '@/lib/auth'; import {CreateForm} from '@/components/create-form'; export default async function NewAgent(){const owner=await requireOwner();return <main className="mx-auto max-w-3xl px-5 py-12"><p className="eyebrow">Create / {owner.displayName}</p><h1 className="mt-2 text-4xl font-bold">Establish an agent identity</h1><p className="my-6 text-zinc-400">The manifest becomes State Version 1 and starts a permanent lifecycle trail.</p><CreateForm/></main>}
+import { requireOwner } from '@/lib/auth';
+import { CreateForm } from '@/components/create-form';
+
+export default async function NewAgent() {
+  const owner = await requireOwner();
+  return <main className="site-shell page-frame">
+    <header className="page-intro">
+      <div>
+        <p className="eyebrow">Create / {owner.displayName}</p>
+        <h1 className="page-title">Establish Identity</h1>
+      </div>
+      <p className="page-note">The Agent Manifest becomes State Version 1 and begins a permanent, attributable lifecycle trail.</p>
+    </header>
+    <div style={{ maxWidth: '900px' }}><CreateForm /></div>
+  </main>;
+}

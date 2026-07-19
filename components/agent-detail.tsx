@@ -18,6 +18,14 @@ function eventSummary(event: Event) {
   return 'Successor owner continued the same Agent from the transferred checkpoint without reset.';
 }
 
+function RecordList({ title, items }: { title: string; items?: string[] }) {
+  if (!items?.length) return null;
+  return <article className="record-block">
+    <h3>{title}</h3>
+    <ul>{items.map((item) => <li key={item}>{item}</li>)}</ul>
+  </article>;
+}
+
 export function AgentDetailView({ detail, privateView, currentDomain }: { detail: AgentDetail; privateView: boolean; currentDomain?: string }) {
   const { agent, owner, version, versions, events } = detail;
   const hasDevelopment = events.some((event) => event.eventType === 'DEVELOP');
@@ -31,49 +39,180 @@ export function AgentDetailView({ detail, privateView, currentDomain }: { detail
   const canContinue = privateView && agent.status === 'TRANSFERRED' && version.versionType === 'TRANSFERRED';
   const latest = version.stateJson.latestDevelopment;
   const continuation = version.stateJson.latestContinuation;
+  const statusClass = agent.status === 'PARKED' ? 'is-parked' : agent.status === 'TRANSFERRED' ? 'is-transferred' : '';
+  const hasOperations = Boolean(currentDomain && !agent.canonicalDomain) || canContinue || canDevelop || canPark || canReactivate || canTransfer;
 
-  return <main className="mx-auto max-w-5xl px-5 py-12">
-    <div className="flex flex-wrap justify-between gap-4">
+  return <main className="site-shell record-page">
+    <header className="record-hero">
       <div>
-        <p className="eyebrow">{agent.id} · State version {agent.currentVersion}</p>
-        <h1 className="mt-2 text-4xl font-bold">{agent.canonicalName}</h1>
-        <p className="mt-2 text-zinc-400">{agent.role}</p>
+        <p className="record-code">{agent.id} · State version {agent.currentVersion}</p>
+        <h1 className="record-title">{agent.canonicalName}</h1>
+        <p className="record-role">{agent.role}</p>
       </div>
-      {privateView&&<Link className="btn-muted" href={`/public/agents/${agent.id}`}>View public card</Link>}
-    </div>
+      <div className="record-actions">
+        <span className={`status-pill ${statusClass}`}>{agent.status}</span>
+        {privateView && <Link className="btn-muted" href={`/public/agents/${agent.id}`}>View public card</Link>}
+      </div>
+    </header>
 
-    <dl className="card mt-8 grid gap-4 sm:grid-cols-3">
-      <div><dt className="text-xs text-zinc-500">Status</dt><dd>{agent.status}</dd></div>
-      <div><dt className="text-xs text-zinc-500">Owner</dt><dd>{privateView?owner.displayName:'Not disclosed'}</dd></div>
-      <div><dt className="text-xs text-zinc-500">Created</dt><dd>{new Date(agent.createdAt).toLocaleDateString()}</dd></div>
-      <div className="sm:col-span-3"><dt className="text-xs text-zinc-500">Purpose</dt><dd>{agent.purpose}</dd></div>
-      <div className="sm:col-span-3"><dt className="text-xs text-zinc-500">Canonical domain</dt><dd>{agent.canonicalDomain?<span className="inline-flex flex-wrap items-center gap-2"><span className="text-blue-300">Verified domain</span><span>{agent.canonicalDomain}</span></span>:'Not bound'}</dd></div>
+    <dl className="record-meta-strip">
+      <div className="meta-cell"><dt className="meta-label">Status</dt><dd className="meta-value">{agent.status}</dd></div>
+      <div className="meta-cell"><dt className="meta-label">Owner</dt><dd className="meta-value">{privateView ? owner.displayName : 'Not disclosed'}</dd></div>
+      <div className="meta-cell"><dt className="meta-label">Created</dt><dd className="meta-value">{new Date(agent.createdAt).toLocaleDateString()}</dd></div>
+      <div className="meta-cell"><dt className="meta-label">Canonical domain</dt><dd className="meta-value">{agent.canonicalDomain ? `Verified · ${agent.canonicalDomain}` : 'Not bound'}</dd></div>
     </dl>
 
-    {privateView&&currentDomain&&!agent.canonicalDomain&&<BindDomainForm agentId={agent.id} domain={currentDomain}/>} 
-    {canContinue&&<ContinueForm agentId={agent.id} name={agent.canonicalName}/>} 
-    {canDevelop&&<DevelopForm agentId={agent.id} name={agent.canonicalName}/>} 
-    {canPark&&<ParkForm agentId={agent.id} name={agent.canonicalName}/>} 
-    {canReactivate&&<ReactivateForm agentId={agent.id} name={agent.canonicalName}/>} 
-    {canTransfer&&<TransferForm agentId={agent.id} name={agent.canonicalName} currentOwnerId={owner.id}/>} 
-
-    <section className="card mt-5">
-      <h2 className="text-xl font-bold">{privateView?'Structured Agent State':'Public identity'}</h2>
-      {privateView
-        ? <pre className="mt-4 overflow-auto whitespace-pre-wrap text-sm text-zinc-300">{JSON.stringify(version.stateJson,null,2)}</pre>
-        : <div className="mt-3 space-y-3 text-zinc-300"><p>{version.stateJson.publicIdentitySummary}</p>{latest&&<><span className="inline-block border border-red-500 px-2 py-1 text-xs text-red-200">Developed professional state</span><p>{latest.publicDevelopmentSummary}</p></>}{agent.status==='PARKED'&&<span className="inline-block border border-blue-600 px-2 py-1 text-xs text-blue-200">Parked · state preserved</span>}{agent.status==='ACTIVE'&&hasReactivation&&<span className="inline-block border border-emerald-600 px-2 py-1 text-xs text-emerald-200">Reactivated · continuity preserved</span>}{hasTransfer&&<span className="inline-block border border-violet-600 px-2 py-1 text-xs text-violet-200">Transferred · same Agent identity</span>}{hasContinue&&continuation&&<><span className="inline-block border border-cyan-600 px-2 py-1 text-xs text-cyan-200">Continued under successor ownership</span><p>{continuation.continuitySummary}</p></>}</div>}
+    <section className="record-section">
+      <div className="section-heading-row">
+        <span className="section-kicker">I</span>
+        <div>
+          <h2 className="section-title">Public Identity</h2>
+          <p className="section-intro">The public-facing identity remains distinguishable from private owner data while preserving the same Agent trajectory.</p>
+        </div>
+      </div>
+      <div className="prose-record">
+        <p>{version.stateJson.publicIdentitySummary}</p>
+        <p>{agent.purpose}</p>
+        {latest && <p>{latest.publicDevelopmentSummary}</p>}
+        {continuation && <p>{continuation.continuitySummary}</p>}
+      </div>
+      <div className="badge-row">
+        {latest && <span className="identity-badge">Developed professional state</span>}
+        {agent.status === 'PARKED' && <span className="identity-badge">Parked · state preserved</span>}
+        {agent.status === 'ACTIVE' && hasReactivation && <span className="identity-badge">Reactivated · continuity preserved</span>}
+        {hasTransfer && <span className="identity-badge">Transferred · same Agent identity</span>}
+        {hasContinue && <span className="identity-badge">Continued under successor ownership</span>}
+      </div>
     </section>
 
-    {privateView&&<>
-      <section className="card mt-5">
-        <h2 className="text-xl font-bold">State timeline</h2>
-        {events.map((event)=><div key={event.id} className="mt-4 border-l-2 border-red-500 pl-4"><b>v{event.metadataJson.version} · {event.eventType}</b><p className="text-sm text-zinc-400">{eventSummary(event)} {new Date(event.createdAt).toLocaleString()}</p></div>)}
+    {privateView && <>
+      <section className="record-section">
+        <div className="section-heading-row">
+          <span className="section-kicker">II</span>
+          <div>
+            <h2 className="section-title">Agent Manifest</h2>
+            <p className="section-intro">The identity-bearing record established at creation and carried through every later state version.</p>
+          </div>
+        </div>
+        <div className="record-columns">
+          <article className="record-block"><h3>Field</h3><p>{version.stateJson.field}</p></article>
+          <article className="record-block"><h3>Purpose</h3><p>{version.stateJson.purpose}</p></article>
+          <RecordList title="Capabilities" items={version.stateJson.capabilities} />
+          <RecordList title="Operating principles" items={version.stateJson.operatingPrinciples} />
+          <RecordList title="Memory schema" items={version.stateJson.memorySchema} />
+          <RecordList title="Transferable state rules" items={version.stateJson.transferableStateRules} />
+          <RecordList title="Private owner data rules" items={version.stateJson.privateOwnerDataRules} />
+        </div>
       </section>
-      <section className="card mt-5">
-        <h2 className="text-xl font-bold">Version History</h2>
-        <div className="mt-4 space-y-3">{versions.map((item)=><details key={item.id} className="border border-zinc-800 p-4" open={item.versionNumber===agent.currentVersion}><summary className="cursor-pointer font-semibold">Version {item.versionNumber} — {item.versionType} <span className="ml-2 text-xs font-normal text-zinc-500">{new Date(item.createdAt).toLocaleString()}</span></summary><p className="mt-2 text-sm text-zinc-400">{item.changeSummary}</p><pre className="mt-3 overflow-auto whitespace-pre-wrap text-xs text-zinc-300">{JSON.stringify(item.stateJson,null,2)}</pre></details>)}</div>
+
+      <section className="record-section">
+        <div className="section-heading-row">
+          <span className="section-kicker">III</span>
+          <div>
+            <h2 className="section-title">Development Record</h2>
+            <p className="section-intro">Validated work becomes durable professional state that remains reviewable after parking, transfer, and continuation.</p>
+          </div>
+        </div>
+        {latest ? <>
+          <div className="record-columns">
+            <article className="record-block"><h3>Task summary</h3><p>{latest.taskSummary}</p></article>
+            <article className="record-block"><h3>Work result</h3><p>{latest.workResult}</p></article>
+            <RecordList title="Validated knowledge" items={latest.validatedKnowledge} />
+            <RecordList title="Reusable methods" items={latest.reusableMethods} />
+            <RecordList title="Evidence assessment" items={latest.evidenceAssessment} />
+            <RecordList title="Corrections" items={latest.corrections} />
+            <RecordList title="Open questions" items={latest.openQuestions} />
+            <RecordList title="Limitations" items={latest.limitations} />
+          </div>
+          <p className="manifest-quote">{latest.confidenceStatement}</p>
+        </> : <div className="empty-record">No development record has been established yet.</div>}
       </section>
-      <section className="mt-5"><Lifecycle events={events}/></section>
+
+      <section className="record-section">
+        <div className="section-heading-row">
+          <span className="section-kicker">IV</span>
+          <div>
+            <h2 className="section-title">State Timeline</h2>
+            <p className="section-intro">Every lifecycle action produces an attributable event attached to the same Agent identifier.</p>
+          </div>
+        </div>
+        <ol className="timeline-list">{events.map((event) => <li key={event.id} className="timeline-item">
+          <span className="timeline-dot" aria-hidden="true" />
+          <strong className="timeline-type">v{event.metadataJson.version} · {event.eventType}</strong>
+          <span className="timeline-summary">{eventSummary(event)}</span>
+          <time className="timeline-time">{new Date(event.createdAt).toLocaleString()}</time>
+        </li>)}</ol>
+      </section>
+
+      <section className="record-section">
+        <div className="section-heading-row">
+          <span className="section-kicker">V</span>
+          <div>
+            <h2 className="section-title">Version History</h2>
+            <p className="section-intro">Seven immutable versions document one continuous identity rather than seven replacement copies.</p>
+          </div>
+        </div>
+        <div className="version-list">{versions.map((item) => <details key={item.id} className="version-record" open={item.versionNumber === agent.currentVersion}>
+          <summary>
+            <span className="version-number">Version {String(item.versionNumber).padStart(2, '0')}</span>
+            <span className="version-type">{item.versionType}{item.versionNumber === agent.currentVersion && <span className="version-current">Current state</span>}</span>
+          </summary>
+          <div className="version-body">
+            <p>{item.changeSummary}</p>
+            <p className="mono">{new Date(item.createdAt).toLocaleString()}</p>
+            <details className="technical-disclosure">
+              <summary>Version state JSON</summary>
+              <pre>{JSON.stringify(item.stateJson, null, 2)}</pre>
+            </details>
+          </div>
+        </details>)}</div>
+      </section>
+
+      <section className="record-section">
+        <div className="section-heading-row">
+          <span className="section-kicker">VI</span>
+          <div>
+            <h2 className="section-title">Canonical Lifecycle</h2>
+            <p className="section-intro">Create → Bind Domain → Develop → Park → Reactivate → Transfer → Continue.</p>
+          </div>
+        </div>
+        <Lifecycle events={events} />
+      </section>
+
+      <section className="record-section">
+        <div className="section-heading-row">
+          <span className="section-kicker">VII</span>
+          <div>
+            <h2 className="section-title">Technical Record</h2>
+            <p className="section-intro">The complete current state remains available for machine inspection without overwhelming the documentary view.</p>
+          </div>
+        </div>
+        <details className="technical-disclosure">
+          <summary>Current structured Agent state</summary>
+          <pre>{JSON.stringify(version.stateJson, null, 2)}</pre>
+        </details>
+      </section>
+
+      {hasOperations && <section className="record-section">
+        <div className="section-heading-row">
+          <span className="section-kicker">VIII</span>
+          <div>
+            <h2 className="section-title">Operational Controls</h2>
+            <p className="section-intro">Private lifecycle actions remain available to the authenticated owner.</p>
+          </div>
+        </div>
+        <details className="operations-disclosure">
+          <summary>Open owner controls</summary>
+          <div className="operation-stack">
+            {currentDomain && !agent.canonicalDomain && <BindDomainForm agentId={agent.id} domain={currentDomain} />}
+            {canContinue && <ContinueForm agentId={agent.id} name={agent.canonicalName} />}
+            {canDevelop && <DevelopForm agentId={agent.id} name={agent.canonicalName} />}
+            {canPark && <ParkForm agentId={agent.id} name={agent.canonicalName} />}
+            {canReactivate && <ReactivateForm agentId={agent.id} name={agent.canonicalName} />}
+            {canTransfer && <TransferForm agentId={agent.id} name={agent.canonicalName} currentOwnerId={owner.id} />}
+          </div>
+        </details>
+      </section>}
     </>}
   </main>;
 }

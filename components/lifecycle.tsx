@@ -19,10 +19,16 @@ export function Lifecycle({ events = [] }: { events?: Event[] }) {
   const completed = [state.create, state.bindDomain, state.develop, state.park, state.reactivate, state.transfer, state.continue];
   const nextIndex = completed.lastIndexOf(true) + 1;
 
-  return <ol className="grid grid-cols-2 gap-2 sm:grid-cols-7">{steps.map((step, index) => {
+  return <ol className="lifecycle-grid">{steps.map((step, index) => {
     const done = completed[index];
     const next = index === nextIndex && nextIndex < steps.length;
     const label = done ? 'Completed' : next ? 'Available' : 'Later phase';
-    return <li key={step} className={`border p-3 text-sm ${done?'border-red-500 bg-red-500/10 text-white':next?'border-blue-600 text-zinc-200':'border-zinc-800 text-zinc-500'}`}><b className="block">{String(index+1).padStart(2,'0')} {step}</b><span className="text-xs">{label}</span></li>;
+    const stateClass = done ? 'is-complete' : next ? 'is-current' : '';
+
+    return <li key={step} className={`lifecycle-step ${stateClass}`}>
+      <span className="lifecycle-number">{String(index + 1).padStart(2, '0')}</span>
+      <strong className="lifecycle-name">{step}</strong>
+      <span className="lifecycle-label">{label}</span>
+    </li>;
   })}</ol>;
 }
