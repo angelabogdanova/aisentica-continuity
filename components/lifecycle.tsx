@@ -9,18 +9,20 @@ export function lifecycleCompletion(events: Event[]) {
     develop: events.some((event) => event.eventType === 'DEVELOP'),
     park: events.some((event) => event.eventType === 'PARK'),
     reactivate: events.some((event) => event.eventType === 'REACTIVATE'),
+    transfer: events.some((event) => event.eventType === 'TRANSFER'),
+    continue: events.some((event) => event.eventType === 'CONTINUE'),
   };
 }
 
 export function Lifecycle({ events = [] }: { events?: Event[] }) {
   const state = lifecycleCompletion(events);
-  const completed = [state.create, state.bindDomain, state.develop, state.park, state.reactivate, false, false];
+  const completed = [state.create, state.bindDomain, state.develop, state.park, state.reactivate, state.transfer, state.continue];
   const nextIndex = completed.lastIndexOf(true) + 1;
 
   return <ol className="grid grid-cols-2 gap-2 sm:grid-cols-7">{steps.map((step, index) => {
     const done = completed[index];
-    const next = index === nextIndex;
-    const label = done ? 'Completed' : next && index <= 4 ? 'Available' : next ? 'Next phase' : 'Later phase';
+    const next = index === nextIndex && nextIndex < steps.length;
+    const label = done ? 'Completed' : next ? 'Available' : 'Later phase';
     return <li key={step} className={`border p-3 text-sm ${done?'border-red-500 bg-red-500/10 text-white':next?'border-blue-600 text-zinc-200':'border-zinc-800 text-zinc-500'}`}><b className="block">{String(index+1).padStart(2,'0')} {step}</b><span className="text-xs">{label}</span></li>;
   })}</ol>;
 }
