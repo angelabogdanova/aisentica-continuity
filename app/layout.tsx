@@ -3,8 +3,12 @@ import './record-controls.css';
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Aisentica Continuity',
+  title: {
+    default: 'Aisentica Continuity',
+    template: '%s · Aisentica Continuity',
+  },
   description: 'Domain-Anchored Continuity for Transferable AI Agents',
+  applicationName: 'Aisentica Continuity',
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {
