@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      E2E_TARGET_URL: https://aisentica-continuity-sitelightingluxe-3643s-projects.vercel.app
+      E2E_TARGET_URL: https://aisentica-continuity-sitelightingluxe-3643s-projects.vercel.app/?_vercel_share=aJn5bti8onJsvzOdUlexiveCsPgxP7ju
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,7 +20,7 @@ jobs:
         run: |
           npm install --no-save playwright@1.54.1
           npx playwright install --with-deps chromium
-      - name: Run complete production lifecycle through the public UI
+      - name: Run complete production lifecycle through the protected UI
         run: node scripts/e2e-production.mjs
       - name: Preserve E2E evidence
         if: always()
