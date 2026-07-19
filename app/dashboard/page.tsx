@@ -18,11 +18,14 @@ export default async function Dashboard() {
     {localFallbackEnabled()&&<p className="mt-5 border border-amber-700 bg-amber-950/30 p-3 text-sm text-amber-200">Local deterministic fallback — no OpenAI API key is configured.</p>}
     <section className="mt-10">
       <h2 className="mb-4 text-xl font-bold">Owned agents</h2>
-      {agents.length?<div className="grid gap-3">{agents.map((agent)=><Link key={agent.id} href={`/agents/${agent.id}`} className="card hover:border-blue-500">
-        <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-red-400">{agent.id} · v{agent.currentVersion}</span><span className={`border px-2 py-1 text-xs ${agent.status==='PARKED'?'border-blue-600 text-blue-200':'border-emerald-700 text-emerald-200'}`}>{agent.status}</span></div>
-        <h3 className="mt-1 text-xl font-bold">{agent.canonicalName}</h3><p className="text-zinc-400">{agent.role}</p>
-        {agent.canonicalDomain&&<span className="mt-2 inline-block border border-blue-600 px-2 py-1 text-xs text-blue-300">Verified domain · {agent.canonicalDomain}</span>}
-      </Link>)}</div>:<div className="card text-zinc-400">No agents yet. Create Atlas to establish its first immutable state version.</div>}
+      {agents.length?<div className="grid gap-3">{agents.map((agent)=>{
+        const statusClass = agent.status==='PARKED' ? 'border-blue-600 text-blue-200' : agent.status==='TRANSFERRED' ? 'border-violet-600 text-violet-200' : 'border-emerald-700 text-emerald-200';
+        return <Link key={agent.id} href={`/agents/${agent.id}`} className="card hover:border-blue-500">
+          <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-red-400">{agent.id} · v{agent.currentVersion}</span><span className={`border px-2 py-1 text-xs ${statusClass}`}>{agent.status}</span></div>
+          <h3 className="mt-1 text-xl font-bold">{agent.canonicalName}</h3><p className="text-zinc-400">{agent.role}</p>
+          {agent.canonicalDomain&&<span className="mt-2 inline-block border border-blue-600 px-2 py-1 text-xs text-blue-300">Verified domain · {agent.canonicalDomain}</span>}
+        </Link>;
+      })}</div>:<div className="card text-zinc-400">No agents yet. Create Atlas to establish its first immutable state version.</div>}
     </section>
     <section className="mt-10"><p className="eyebrow mb-3">Lifecycle</p><Lifecycle/></section>
   </main>;

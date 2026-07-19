@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { assertSupabaseConfiguration } from './config';
 import { generateAgentId } from './id';
 import type { Repository } from './repository';
-import type { Agent, AgentDetail, DevelopmentRecord, DomainBinding, Event, Manifest, Owner, Version, VersionState } from './types';
+import type { Agent, AgentDetail, DevelopmentRecord, DomainBinding, Event, Manifest, Owner, TransferOffer, Version, VersionState } from './types';
 
 type Row = Record<string, unknown>;
 type DatabaseError = { code?: string; message: string } | null;
@@ -23,9 +23,7 @@ type SupabaseDataClient = {
 };
 
 function asRow(value: unknown, context: string): Row {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error(`Supabase returned an invalid ${context} record.`);
-  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`Supabase returned an invalid ${context} record.`);
   return value as Row;
 }
 
@@ -90,6 +88,20 @@ function mapBinding(row: Row): DomainBinding {
   };
 }
 
+function mapTransferOffer(row: Row): TransferOffer {
+  return {
+    id: row.id as string,
+    agentId: row.agent_id as string,
+    fromOwnerId: row.from_owner_id as string,
+    intendedOwnerId: row.intended_owner_id as string,
+    fromVersion: row.from_version as number,
+    handoffSummary: row.handoff_summary as string,
+    expiresAt: row.expires_at as string,
+    acceptedAt: row.accepted_at as string | null,
+    createdAt: row.created_at as string,
+  };
+}
+
 export function mapDomainBindingRpcResult(value: unknown): DomainBinding {
   return mapBinding(asRow(value, 'Domain Binding RPC'));
 }
@@ -135,11 +147,7 @@ export class SupabaseRepository implements Repository {
 
   async create(ownerId: string, manifest: Manifest): Promise<AgentDetail> {
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const { data, error } = await this.client.rpc('create_agent_with_initial_state', {
-        p_agent_id: generateAgentId(),
-        p_owner_id: ownerId,
-        p_manifest: manifest,
-      });
+      const { data, error } = await this.client.rpc('create_agent_with_initial_state', { p_agent_id: generateAgentId(), p_owner_id: ownerId, p_manifest: manifest });
       if (!error && data) return mapCreateRpcResult(data);
       if (error?.code === '23505' && attempt < 2) continue;
       throw new Error(error?.code === 'P0001' ? error.message : `Unable to persist agent: ${error?.message ?? 'empty RPC response'}`);
@@ -181,62 +189,68 @@ export class SupabaseRepository implements Repository {
   }
 
   async createPendingDomainBinding(agentId: string, ownerId: string, domain: string, token: string): Promise<DomainBinding> {
-    const { data, error } = await this.client.rpc('create_pending_domain_binding', {
-      p_agent_id: agentId,
-      p_owner_id: ownerId,
-      p_domain: domain,
-      p_verification_token: token,
-    });
+    const { data, error } = await this.client.rpc('create_pending_domain_binding', { p_agent_id: agentId, p_owner_id: ownerId, p_domain: domain, p_verification_token: token });
     if (error || !data) throw new Error(error?.message ?? 'Unable to create a pending domain binding.');
     return mapDomainBindingRpcResult(data);
   }
 
   async failDomainBinding(agentId: string, ownerId: string, bindingId: string): Promise<void> {
-    const { error } = await this.client.rpc('fail_domain_binding', {
-      p_agent_id: agentId,
-      p_owner_id: ownerId,
-      p_binding_id: bindingId,
-    });
+    const { error } = await this.client.rpc('fail_domain_binding', { p_agent_id: agentId, p_owner_id: ownerId, p_binding_id: bindingId });
     if (error) throw new Error(error.message);
   }
 
   async completeDomainBinding(agentId: string, ownerId: string, bindingId: string): Promise<AgentDetail> {
-    const { data, error } = await this.client.rpc('complete_domain_binding', {
-      p_agent_id: agentId,
-      p_owner_id: ownerId,
-      p_binding_id: bindingId,
-    });
+    const { data, error } = await this.client.rpc('complete_domain_binding', { p_agent_id: agentId, p_owner_id: ownerId, p_binding_id: bindingId });
     if (error || !data) throw new Error(error?.message ?? 'Unable to complete domain binding.');
     return mapDomainCompletionRpcResult(data);
   }
 
   async develop(agentId: string, ownerId: string, development: DevelopmentRecord): Promise<AgentDetail> {
-    const { data, error } = await this.client.rpc('develop_agent', {
-      p_agent_id: agentId,
-      p_owner_id: ownerId,
-      p_development: development,
-    });
+    const { data, error } = await this.client.rpc('develop_agent', { p_agent_id: agentId, p_owner_id: ownerId, p_development: development });
     if (error || !data) throw new Error(error?.message ?? 'Unable to persist Agent development.');
     return mapDomainCompletionRpcResult(data);
   }
 
   async park(agentId: string, ownerId: string, reason: string): Promise<AgentDetail> {
-    const { data, error } = await this.client.rpc('park_agent', {
-      p_agent_id: agentId,
-      p_owner_id: ownerId,
-      p_reason: reason,
-    });
+    const { data, error } = await this.client.rpc('park_agent', { p_agent_id: agentId, p_owner_id: ownerId, p_reason: reason });
     if (error || !data) throw new Error(error?.message ?? 'Unable to park Agent.');
     return mapDomainCompletionRpcResult(data);
   }
 
   async reactivate(agentId: string, ownerId: string, reason: string): Promise<AgentDetail> {
-    const { data, error } = await this.client.rpc('reactivate_agent', {
-      p_agent_id: agentId,
-      p_owner_id: ownerId,
-      p_reason: reason,
-    });
+    const { data, error } = await this.client.rpc('reactivate_agent', { p_agent_id: agentId, p_owner_id: ownerId, p_reason: reason });
     if (error || !data) throw new Error(error?.message ?? 'Unable to reactivate Agent.');
+    return mapDomainCompletionRpcResult(data);
+  }
+
+  async createTransferOffer(agentId: string, fromOwnerId: string, intendedOwnerId: string, tokenHash: string, handoffSummary: string, expiresAt: string): Promise<TransferOffer> {
+    const { data, error } = await this.client.rpc('create_transfer_offer', {
+      p_agent_id: agentId,
+      p_from_owner_id: fromOwnerId,
+      p_intended_owner_id: intendedOwnerId,
+      p_token_hash: tokenHash,
+      p_handoff_summary: handoffSummary,
+      p_expires_at: expiresAt,
+    });
+    if (error || !data) throw new Error(error?.message ?? 'Unable to create transfer offer.');
+    return mapTransferOffer(asRow(data, 'Transfer Offer RPC'));
+  }
+
+  async transferOffer(tokenHash: string): Promise<TransferOffer | undefined> {
+    const { data, error } = await this.client.from('transfer_tokens').select('*').eq('token_hash', tokenHash).maybeSingle();
+    if (error) throw error;
+    return data ? mapTransferOffer(asRow(data, 'Transfer Offer')) : undefined;
+  }
+
+  async acceptTransfer(tokenHash: string, intendedOwnerId: string): Promise<AgentDetail> {
+    const { data, error } = await this.client.rpc('accept_agent_transfer', { p_token_hash: tokenHash, p_intended_owner_id: intendedOwnerId });
+    if (error || !data) throw new Error(error?.message ?? 'Unable to accept Agent transfer.');
+    return mapDomainCompletionRpcResult(data);
+  }
+
+  async continueAgent(agentId: string, ownerId: string, objective: string): Promise<AgentDetail> {
+    const { data, error } = await this.client.rpc('continue_agent', { p_agent_id: agentId, p_owner_id: ownerId, p_objective: objective });
+    if (error || !data) throw new Error(error?.message ?? 'Unable to continue Agent.');
     return mapDomainCompletionRpcResult(data);
   }
 

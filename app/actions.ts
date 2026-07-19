@@ -12,6 +12,14 @@ import { developAgentLifecycle } from '@/lib/develop-agent';
 import { developmentService } from '@/lib/development';
 import { parkAgentLifecycle } from '@/lib/park-agent';
 import { reactivateAgentLifecycle } from '@/lib/reactivate-agent';
+import { acceptTransferLifecycle, initiateTransferLifecycle } from '@/lib/transfer-agent';
+import { continueAgentLifecycle } from '@/lib/continue-agent';
+import { storageBackend } from '@/lib/config';
+
+function safeReturnPath(value: FormDataEntryValue | null): string {
+  const path = typeof value === 'string' ? value : '';
+  return path.startsWith('/transfer/') && !path.startsWith('//') ? path : '/dashboard';
+}
 
 export type CreateState = { error?: string };
 
@@ -25,11 +33,12 @@ export async function selectOwner(formData: FormData) {
     path: '/',
     maxAge: 60 * 60 * 8,
   });
-  redirect('/dashboard');
+  redirect(safeReturnPath(formData.get('returnTo')));
 }
 
 export async function resetDemo() {
   await requireOwner();
+  if (storageBackend() !== 'memory') throw new Error('Production demo reset is disabled.');
   await repository.reset();
   redirect('/dashboard');
 }
@@ -70,11 +79,7 @@ export async function developAgent(_previous: DevelopState, formData: FormData):
     const owner = await requireOwner();
     agentId = String(formData.get('agentId'));
     await developAgentLifecycle(
-      {
-        task: formData.get('task'),
-        contextAndEvidence: formData.get('contextAndEvidence'),
-        successCriteria: formData.get('successCriteria'),
-      },
+      { task: formData.get('task'), contextAndEvidence: formData.get('contextAndEvidence'), successCriteria: formData.get('successCriteria') },
       agentId,
       owner.id,
       { repository, development: developmentService },
@@ -92,12 +97,7 @@ export async function parkAgent(_previous: ParkState, formData: FormData): Promi
   try {
     const owner = await requireOwner();
     agentId = String(formData.get('agentId'));
-    await parkAgentLifecycle(
-      { reason: formData.get('reason') },
-      agentId,
-      owner.id,
-      { repository },
-    );
+    await parkAgentLifecycle({ reason: formData.get('reason') }, agentId, owner.id, { repository });
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Unable to park the Agent.' };
   }
@@ -111,14 +111,54 @@ export async function reactivateAgent(_previous: ReactivateState, formData: Form
   try {
     const owner = await requireOwner();
     agentId = String(formData.get('agentId'));
-    await reactivateAgentLifecycle(
-      { reason: formData.get('reactivationReason') },
-      agentId,
+    await reactivateAgentLifecycle({ reason: formData.get('reactivationReason') }, agentId, owner.id, { repository });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Unable to reactivate the Agent.' };
+  }
+  redirect(`/agents/${agentId}`);
+}
+
+export type TransferState = { error?: string };
+
+export async function initiateAgentTransfer(_previous: TransferState, formData: FormData): Promise<TransferState> {
+  let token: string;
+  try {
+    const owner = await requireOwner();
+    token = await initiateTransferLifecycle(
+      { intendedOwnerId: formData.get('intendedOwnerId'), handoffSummary: formData.get('handoffSummary') },
+      String(formData.get('agentId')),
       owner.id,
       { repository },
     );
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Unable to reactivate the Agent.' };
+    return { error: error instanceof Error ? error.message : 'Unable to create the transfer offer.' };
+  }
+  redirect(`/transfer/${token}`);
+}
+
+export type AcceptTransferState = { error?: string };
+
+export async function acceptAgentTransfer(_previous: AcceptTransferState, formData: FormData): Promise<AcceptTransferState> {
+  let agentId: string;
+  try {
+    const owner = await requireOwner();
+    agentId = await acceptTransferLifecycle(String(formData.get('token')), owner.id, { repository });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Unable to accept the transfer.' };
+  }
+  redirect(`/agents/${agentId}`);
+}
+
+export type ContinueState = { error?: string };
+
+export async function continueAgent(_previous: ContinueState, formData: FormData): Promise<ContinueState> {
+  let agentId: string;
+  try {
+    const owner = await requireOwner();
+    agentId = String(formData.get('agentId'));
+    await continueAgentLifecycle({ objective: formData.get('objective') }, agentId, owner.id, { repository });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Unable to continue the Agent.' };
   }
   redirect(`/agents/${agentId}`);
 }
