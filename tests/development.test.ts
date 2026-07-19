@@ -165,6 +165,6 @@ describe('Develop lifecycle', () => {
       repository: repo,
       development: new DeterministicDevelopmentService(record),
     });
-    expect(lifecycleCompletion((await repo.detail(agentId))!.events)).toEqual({ create: true, bindDomain: true, develop: true });
+    expect(lifecycleCompletion((await repo.detail(agentId))!.events)).toEqual({ create: true, bindDomain: true, develop: true, park: false });
   });
 });
