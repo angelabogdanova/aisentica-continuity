@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { storageBackend } from './config';
 import { generateAgentId } from './id';
 import { SupabaseRepository } from './supabase-repository';
-import type { Agent, AgentDetail, DevelopmentRecord, DomainBinding, Event, Manifest, Owner, Version } from './types';
+import type { Agent, AgentDetail, DevelopmentRecord, DomainBinding, Event, Manifest, Owner, TransferOffer, Version } from './types';
 
 export interface Repository {
   owners(): Promise<Owner[]>;
@@ -17,6 +17,10 @@ export interface Repository {
   develop(agentId: string, ownerId: string, development: DevelopmentRecord): Promise<AgentDetail>;
   park(agentId: string, ownerId: string, reason: string): Promise<AgentDetail>;
   reactivate(agentId: string, ownerId: string, reason: string): Promise<AgentDetail>;
+  createTransferOffer(agentId: string, fromOwnerId: string, intendedOwnerId: string, tokenHash: string, handoffSummary: string, expiresAt: string): Promise<TransferOffer>;
+  transferOffer(tokenHash: string): Promise<TransferOffer | undefined>;
+  acceptTransfer(tokenHash: string, intendedOwnerId: string): Promise<AgentDetail>;
+  continueAgent(agentId: string, ownerId: string, objective: string): Promise<AgentDetail>;
   reset(): Promise<void>;
 }
 
@@ -25,11 +29,19 @@ const demoOwners: Owner[] = [
   { id: 'owner-b', displayName: 'Owner B', slug: 'owner-b', createdAt: '2026-01-01T00:00:00.000Z' },
 ];
 
+type StoredTransferOffer = TransferOffer & { tokenHash: string };
+
+function safeTransferOffer(offer: StoredTransferOffer): TransferOffer {
+  const { tokenHash: _tokenHash, ...safe } = offer;
+  return safe;
+}
+
 export class MemoryRepository implements Repository {
   private agents: Agent[] = [];
   private versions: Version[] = [];
   private events: Event[] = [];
   private bindings: DomainBinding[] = [];
+  private transferOffers: StoredTransferOffer[] = [];
 
   async owners() { return demoOwners; }
   async owner(id: string) { return demoOwners.find((owner) => owner.id === id); }
@@ -183,9 +195,7 @@ export class MemoryRepository implements Repository {
     if (!agent) throw new Error('Agent not found.');
     if (agent.ownerId !== ownerId) throw new Error('You are not authorized to develop this agent.');
     if (agent.status !== 'ACTIVE') throw new Error('Only ACTIVE agents can Develop.');
-    if (!agent.canonicalDomain || agent.currentVersion < 2) {
-      throw new Error('A verified canonical domain is required before Develop.');
-    }
+    if (!agent.canonicalDomain || agent.currentVersion < 2) throw new Error('A verified canonical domain is required before Develop.');
 
     const current = this.versions.find((item) => item.agentId === agentId && item.versionNumber === agent.currentVersion);
     if (!current) throw new Error('Current Agent Version is missing.');
@@ -198,23 +208,12 @@ export class MemoryRepository implements Repository {
       agentId,
       versionNumber: nextNumber,
       versionType: 'DEVELOPMENT',
-      stateJson: {
-        ...current.stateJson,
-        developmentHistory: history,
-        latestDevelopment: development,
-      },
+      stateJson: { ...current.stateJson, developmentHistory: history, latestDevelopment: development },
       changeSummary: development.taskSummary,
       createdByOwnerId: ownerId,
       createdAt: now,
     };
-    const event: Event = {
-      id: randomUUID(),
-      agentId,
-      eventType: 'DEVELOP',
-      actorOwnerId: ownerId,
-      metadataJson: { version: String(nextNumber) },
-      createdAt: now,
-    };
+    const event: Event = { id: randomUUID(), agentId, eventType: 'DEVELOP', actorOwnerId: ownerId, metadataJson: { version: String(nextNumber) }, createdAt: now };
 
     this.versions.push(version);
     this.events.push(event);
@@ -228,12 +227,8 @@ export class MemoryRepository implements Repository {
     if (!agent) throw new Error('Agent not found.');
     if (agent.ownerId !== ownerId) throw new Error('You are not authorized to park this agent.');
     if (agent.status !== 'ACTIVE') throw new Error('Only ACTIVE agents can be parked.');
-    if (!agent.canonicalDomain || agent.currentVersion < 3) {
-      throw new Error('The agent must have a verified domain and developed state before Park.');
-    }
-    if (!this.events.some((event) => event.agentId === agentId && event.eventType === 'DEVELOP')) {
-      throw new Error('At least one DEVELOP event is required before Park.');
-    }
+    if (!agent.canonicalDomain || agent.currentVersion < 3) throw new Error('The agent must have a verified domain and developed state before Park.');
+    if (!this.events.some((event) => event.agentId === agentId && event.eventType === 'DEVELOP')) throw new Error('At least one DEVELOP event is required before Park.');
 
     const current = this.versions.find((item) => item.agentId === agentId && item.versionNumber === agent.currentVersion);
     if (!current) throw new Error('Current Agent Version is missing.');
@@ -241,29 +236,12 @@ export class MemoryRepository implements Repository {
     const now = new Date().toISOString();
     const nextNumber = agent.currentVersion + 1;
     const parkRecord = { reason: reason.trim(), parkedAt: now };
-    const parkHistory = [...(current.stateJson.parkHistory ?? []), parkRecord];
     const version: Version = {
-      id: randomUUID(),
-      agentId,
-      versionNumber: nextNumber,
-      versionType: 'PARKED',
-      stateJson: {
-        ...current.stateJson,
-        parkHistory,
-        latestPark: parkRecord,
-      },
-      changeSummary: `Agent parked: ${parkRecord.reason}`,
-      createdByOwnerId: ownerId,
-      createdAt: now,
+      id: randomUUID(), agentId, versionNumber: nextNumber, versionType: 'PARKED',
+      stateJson: { ...current.stateJson, parkHistory: [...(current.stateJson.parkHistory ?? []), parkRecord], latestPark: parkRecord },
+      changeSummary: `Agent parked: ${parkRecord.reason}`, createdByOwnerId: ownerId, createdAt: now,
     };
-    const event: Event = {
-      id: randomUUID(),
-      agentId,
-      eventType: 'PARK',
-      actorOwnerId: ownerId,
-      metadataJson: { version: String(nextNumber) },
-      createdAt: now,
-    };
+    const event: Event = { id: randomUUID(), agentId, eventType: 'PARK', actorOwnerId: ownerId, metadataJson: { version: String(nextNumber) }, createdAt: now };
 
     this.versions.push(version);
     this.events.push(event);
@@ -278,12 +256,8 @@ export class MemoryRepository implements Repository {
     if (!agent) throw new Error('Agent not found.');
     if (agent.ownerId !== ownerId) throw new Error('You are not authorized to reactivate this agent.');
     if (agent.status !== 'PARKED') throw new Error('Only PARKED agents can be reactivated.');
-    if (!agent.canonicalDomain || agent.currentVersion < 4) {
-      throw new Error('A parked, domain-bound state is required before Reactivate.');
-    }
-    if (!this.events.some((event) => event.agentId === agentId && event.eventType === 'PARK')) {
-      throw new Error('A PARK event is required before Reactivate.');
-    }
+    if (!agent.canonicalDomain || agent.currentVersion < 4) throw new Error('A parked, domain-bound state is required before Reactivate.');
+    if (!this.events.some((event) => event.agentId === agentId && event.eventType === 'PARK')) throw new Error('A PARK event is required before Reactivate.');
 
     const current = this.versions.find((item) => item.agentId === agentId && item.versionNumber === agent.currentVersion);
     if (!current) throw new Error('Current Agent Version is missing.');
@@ -291,29 +265,99 @@ export class MemoryRepository implements Repository {
     const now = new Date().toISOString();
     const nextNumber = agent.currentVersion + 1;
     const reactivationRecord = { reason: reason.trim(), reactivatedAt: now };
-    const reactivationHistory = [...(current.stateJson.reactivationHistory ?? []), reactivationRecord];
     const version: Version = {
-      id: randomUUID(),
-      agentId,
-      versionNumber: nextNumber,
-      versionType: 'REACTIVATED',
-      stateJson: {
-        ...current.stateJson,
-        reactivationHistory,
-        latestReactivation: reactivationRecord,
-      },
-      changeSummary: `Agent reactivated: ${reactivationRecord.reason}`,
-      createdByOwnerId: ownerId,
-      createdAt: now,
+      id: randomUUID(), agentId, versionNumber: nextNumber, versionType: 'REACTIVATED',
+      stateJson: { ...current.stateJson, reactivationHistory: [...(current.stateJson.reactivationHistory ?? []), reactivationRecord], latestReactivation: reactivationRecord },
+      changeSummary: `Agent reactivated: ${reactivationRecord.reason}`, createdByOwnerId: ownerId, createdAt: now,
     };
-    const event: Event = {
-      id: randomUUID(),
-      agentId,
-      eventType: 'REACTIVATE',
-      actorOwnerId: ownerId,
-      metadataJson: { version: String(nextNumber) },
-      createdAt: now,
+    const event: Event = { id: randomUUID(), agentId, eventType: 'REACTIVATE', actorOwnerId: ownerId, metadataJson: { version: String(nextNumber) }, createdAt: now };
+
+    this.versions.push(version);
+    this.events.push(event);
+    agent.status = 'ACTIVE';
+    agent.currentVersion = nextNumber;
+    agent.updatedAt = now;
+    return (await this.detail(agentId))!;
+  }
+
+  async createTransferOffer(agentId: string, fromOwnerId: string, intendedOwnerId: string, tokenHash: string, handoffSummary: string, expiresAt: string): Promise<TransferOffer> {
+    const agent = this.agents.find((item) => item.id === agentId);
+    if (!agent) throw new Error('Agent not found.');
+    if (agent.ownerId !== fromOwnerId) throw new Error('Agent ownership mismatch.');
+    if (agent.status !== 'ACTIVE') throw new Error('Only ACTIVE agents can be transferred.');
+    if (agent.currentVersion < 5 || !this.events.some((event) => event.agentId === agentId && event.eventType === 'REACTIVATE')) throw new Error('Reactivate must be completed before Transfer.');
+    if (fromOwnerId === intendedOwnerId || !(await this.owner(intendedOwnerId))) throw new Error('Invalid intended owner.');
+
+    this.transferOffers = this.transferOffers.filter((offer) => offer.agentId !== agentId || offer.acceptedAt !== null);
+    const offer: StoredTransferOffer = {
+      id: randomUUID(), agentId, fromOwnerId, intendedOwnerId, fromVersion: agent.currentVersion,
+      tokenHash, handoffSummary: handoffSummary.trim(), expiresAt, acceptedAt: null, createdAt: new Date().toISOString(),
     };
+    this.transferOffers.push(offer);
+    return safeTransferOffer(offer);
+  }
+
+  async transferOffer(tokenHash: string): Promise<TransferOffer | undefined> {
+    const offer = this.transferOffers.find((item) => item.tokenHash === tokenHash);
+    return offer ? safeTransferOffer(offer) : undefined;
+  }
+
+  async acceptTransfer(tokenHash: string, intendedOwnerId: string): Promise<AgentDetail> {
+    const offer = this.transferOffers.find((item) => item.tokenHash === tokenHash);
+    if (!offer) throw new Error('Transfer offer not found.');
+    if (offer.intendedOwnerId !== intendedOwnerId) throw new Error('Transfer owner mismatch.');
+    if (offer.acceptedAt) throw new Error('Transfer offer already accepted.');
+    if (new Date(offer.expiresAt).getTime() <= Date.now()) throw new Error('Transfer offer expired.');
+
+    const agent = this.agents.find((item) => item.id === offer.agentId);
+    if (!agent || agent.ownerId !== offer.fromOwnerId || agent.status !== 'ACTIVE' || agent.currentVersion !== offer.fromVersion) {
+      throw new Error('Transfer offer is stale or unauthorized.');
+    }
+    const current = this.versions.find((item) => item.agentId === agent.id && item.versionNumber === agent.currentVersion);
+    if (!current) throw new Error('Current Agent Version is missing.');
+
+    const now = new Date().toISOString();
+    const nextNumber = agent.currentVersion + 1;
+    const transferRecord = { fromOwnerId: offer.fromOwnerId, toOwnerId: intendedOwnerId, handoffSummary: offer.handoffSummary, transferredAt: now };
+    const version: Version = {
+      id: randomUUID(), agentId: agent.id, versionNumber: nextNumber, versionType: 'TRANSFERRED',
+      stateJson: { ...current.stateJson, transferHistory: [...(current.stateJson.transferHistory ?? []), transferRecord], latestTransfer: transferRecord },
+      changeSummary: 'Agent ownership transferred through an accepted single-use offer.', createdByOwnerId: intendedOwnerId, createdAt: now,
+    };
+    const event: Event = { id: randomUUID(), agentId: agent.id, eventType: 'TRANSFER', actorOwnerId: intendedOwnerId, metadataJson: { version: String(nextNumber) }, createdAt: now };
+
+    offer.acceptedAt = now;
+    this.versions.push(version);
+    this.events.push(event);
+    agent.ownerId = intendedOwnerId;
+    agent.status = 'TRANSFERRED';
+    agent.currentVersion = nextNumber;
+    agent.updatedAt = now;
+    return (await this.detail(agent.id))!;
+  }
+
+  async continueAgent(agentId: string, ownerId: string, objective: string): Promise<AgentDetail> {
+    const agent = this.agents.find((item) => item.id === agentId);
+    if (!agent) throw new Error('Agent not found.');
+    if (agent.ownerId !== ownerId) throw new Error('You are not authorized to continue this agent.');
+    if (agent.status !== 'TRANSFERRED') throw new Error('Only a transferred agent can enter Continue.');
+    const current = this.versions.find((item) => item.agentId === agentId && item.versionNumber === agent.currentVersion);
+    if (!current || current.versionType !== 'TRANSFERRED') throw new Error('The transferred checkpoint is missing.');
+
+    const now = new Date().toISOString();
+    const nextNumber = agent.currentVersion + 1;
+    const continuationRecord = {
+      objective: objective.trim(),
+      inheritedFromVersion: agent.currentVersion,
+      continuitySummary: 'The same Agent continued under successor ownership with identity, verified domain, and complete prior state preserved.',
+      continuedAt: now,
+    };
+    const version: Version = {
+      id: randomUUID(), agentId, versionNumber: nextNumber, versionType: 'CONTINUED',
+      stateJson: { ...current.stateJson, continuationHistory: [...(current.stateJson.continuationHistory ?? []), continuationRecord], latestContinuation: continuationRecord },
+      changeSummary: 'Agent continued under successor ownership.', createdByOwnerId: ownerId, createdAt: now,
+    };
+    const event: Event = { id: randomUUID(), agentId, eventType: 'CONTINUE', actorOwnerId: ownerId, metadataJson: { version: String(nextNumber) }, createdAt: now };
 
     this.versions.push(version);
     this.events.push(event);
@@ -328,6 +372,7 @@ export class MemoryRepository implements Repository {
     this.versions = [];
     this.events = [];
     this.bindings = [];
+    this.transferOffers = [];
   }
 }
 
@@ -350,8 +395,11 @@ export function publicAgent(detail: AgentDetail) {
     currentVersion: detail.agent.currentVersion,
     publicIdentitySummary: detail.version.stateJson.publicIdentitySummary,
     latestPublicDevelopmentSummary: detail.version.stateJson.latestDevelopment?.publicDevelopmentSummary ?? null,
+    latestPublicContinuationSummary: detail.version.stateJson.latestContinuation?.continuitySummary ?? null,
     developed: detail.events.some((event) => event.eventType === 'DEVELOP'),
     parked: detail.agent.status === 'PARKED',
     reactivated: detail.events.some((event) => event.eventType === 'REACTIVATE'),
+    transferred: detail.events.some((event) => event.eventType === 'TRANSFER'),
+    continued: detail.events.some((event) => event.eventType === 'CONTINUE'),
   };
 }
