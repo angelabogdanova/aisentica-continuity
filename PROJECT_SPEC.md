@@ -20,6 +20,11 @@ The authenticated owner may park an ACTIVE, domain-bound Agent after at least on
 
 While parked, Develop is unavailable. The public card may disclose only the `PARKED` status and that state is preserved; the private parking reason remains owner-only.
 
+### Phase 5 — Reactivate
+The authenticated owner may reactivate a `PARKED` Agent. Reactivate restores availability to `ACTIVE` while preserving the complete parked checkpoint and every earlier version. It appends a private Reactivation Record, creates the next sequential `REACTIVATED` version, and records exactly one `REACTIVATE` event atomically.
+
+After Reactivate, Develop becomes available again. The public card may disclose that continuity was restored, but the private reactivation reason remains owner-only.
+
 ## Not implemented
 
-Reactivate returns a parked Agent to ACTIVE state; Transfer performs controlled ownership handoff; Continue resumes under the new owner. No future stage may copy an Agent or rewrite history.
+Transfer performs controlled ownership handoff; Continue resumes under the new owner. No future stage may copy an Agent or rewrite history.
