@@ -10,6 +10,7 @@ import { bindCurrentDomain } from '@/lib/bind-domain';
 import { SameOriginHttpsDomainVerificationService } from '@/lib/domain-verification';
 import { developAgentLifecycle } from '@/lib/develop-agent';
 import { developmentService } from '@/lib/development';
+import { parkAgentLifecycle } from '@/lib/park-agent';
 
 export type CreateState = { error?: string };
 
@@ -79,6 +80,25 @@ export async function developAgent(_previous: DevelopState, formData: FormData):
     );
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Unable to develop the Agent.' };
+  }
+  redirect(`/agents/${agentId}`);
+}
+
+export type ParkState = { error?: string };
+
+export async function parkAgent(_previous: ParkState, formData: FormData): Promise<ParkState> {
+  let agentId: string;
+  try {
+    const owner = await requireOwner();
+    agentId = String(formData.get('agentId'));
+    await parkAgentLifecycle(
+      { reason: formData.get('reason') },
+      agentId,
+      owner.id,
+      { repository },
+    );
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Unable to park the Agent.' };
   }
   redirect(`/agents/${agentId}`);
 }
