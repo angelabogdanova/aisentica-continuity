@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { BindDomainForm } from './bind-domain-form';
 import { DevelopForm } from './develop-form';
 import { ParkForm } from './park-form';
+import { ReactivateForm } from './reactivate-form';
 import { Lifecycle } from './lifecycle';
 import type { AgentDetail, Event } from '@/lib/types';
 
@@ -9,14 +10,17 @@ function eventSummary(event: Event) {
   if (event.eventType === 'CREATE') return 'Initial Agent Manifest created.';
   if (event.eventType === 'BIND_DOMAIN') return `Verified canonical domain ${event.metadataJson.domain}.`;
   if (event.eventType === 'DEVELOP') return 'Developed durable professional state.';
-  return 'Agent parked without deleting identity, domain, or state history.';
+  if (event.eventType === 'PARK') return 'Agent parked without deleting identity, domain, or state history.';
+  return 'Agent reactivated with its complete parked checkpoint and prior history preserved.';
 }
 
 export function AgentDetailView({ detail, privateView, currentDomain }: { detail: AgentDetail; privateView: boolean; currentDomain?: string }) {
   const { agent, owner, version, versions, events } = detail;
   const hasDevelopment = events.some((event) => event.eventType === 'DEVELOP');
+  const hasReactivation = events.some((event) => event.eventType === 'REACTIVATE');
   const canDevelop = privateView && agent.status === 'ACTIVE' && Boolean(agent.canonicalDomain) && agent.currentVersion >= 2;
   const canPark = privateView && agent.status === 'ACTIVE' && Boolean(agent.canonicalDomain) && hasDevelopment;
+  const canReactivate = privateView && agent.status === 'PARKED';
   const latest = version.stateJson.latestDevelopment;
 
   return <main className="mx-auto max-w-5xl px-5 py-12">
@@ -40,13 +44,13 @@ export function AgentDetailView({ detail, privateView, currentDomain }: { detail
     {privateView&&currentDomain&&!agent.canonicalDomain&&<BindDomainForm agentId={agent.id} domain={currentDomain}/>} 
     {canDevelop&&<DevelopForm agentId={agent.id} name={agent.canonicalName}/>} 
     {canPark&&<ParkForm agentId={agent.id} name={agent.canonicalName}/>} 
-    {privateView&&agent.status==='PARKED'&&<section className="card mt-5 border-blue-700"><p className="eyebrow">Stage 05 · Reactivate</p><h2 className="mt-2 text-xl font-bold">Parked state preserved</h2><p className="mt-2 text-sm text-zinc-400">Develop is disabled while parked. Reactivate is the next lifecycle phase.</p></section>}
+    {canReactivate&&<ReactivateForm agentId={agent.id} name={agent.canonicalName}/>} 
 
     <section className="card mt-5">
       <h2 className="text-xl font-bold">{privateView?'Structured Agent State':'Public identity'}</h2>
       {privateView
         ? <pre className="mt-4 overflow-auto whitespace-pre-wrap text-sm text-zinc-300">{JSON.stringify(version.stateJson,null,2)}</pre>
-        : <div className="mt-3 space-y-3 text-zinc-300"><p>{version.stateJson.publicIdentitySummary}</p>{latest&&<><span className="inline-block border border-red-500 px-2 py-1 text-xs text-red-200">Developed professional state</span><p>{latest.publicDevelopmentSummary}</p></>}{agent.status==='PARKED'&&<span className="inline-block border border-blue-600 px-2 py-1 text-xs text-blue-200">Parked · state preserved</span>}</div>}
+        : <div className="mt-3 space-y-3 text-zinc-300"><p>{version.stateJson.publicIdentitySummary}</p>{latest&&<><span className="inline-block border border-red-500 px-2 py-1 text-xs text-red-200">Developed professional state</span><p>{latest.publicDevelopmentSummary}</p></>}{agent.status==='PARKED'&&<span className="inline-block border border-blue-600 px-2 py-1 text-xs text-blue-200">Parked · state preserved</span>}{agent.status==='ACTIVE'&&hasReactivation&&<span className="inline-block border border-emerald-600 px-2 py-1 text-xs text-emerald-200">Reactivated · continuity preserved</span>}</div>}
     </section>
 
     {privateView&&<>

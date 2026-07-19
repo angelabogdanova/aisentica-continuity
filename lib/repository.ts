@@ -16,6 +16,7 @@ export interface Repository {
   completeDomainBinding(agentId: string, ownerId: string, bindingId: string): Promise<AgentDetail>;
   develop(agentId: string, ownerId: string, development: DevelopmentRecord): Promise<AgentDetail>;
   park(agentId: string, ownerId: string, reason: string): Promise<AgentDetail>;
+  reactivate(agentId: string, ownerId: string, reason: string): Promise<AgentDetail>;
   reset(): Promise<void>;
 }
 
@@ -272,6 +273,56 @@ export class MemoryRepository implements Repository {
     return (await this.detail(agentId))!;
   }
 
+  async reactivate(agentId: string, ownerId: string, reason: string): Promise<AgentDetail> {
+    const agent = this.agents.find((item) => item.id === agentId);
+    if (!agent) throw new Error('Agent not found.');
+    if (agent.ownerId !== ownerId) throw new Error('You are not authorized to reactivate this agent.');
+    if (agent.status !== 'PARKED') throw new Error('Only PARKED agents can be reactivated.');
+    if (!agent.canonicalDomain || agent.currentVersion < 4) {
+      throw new Error('A parked, domain-bound state is required before Reactivate.');
+    }
+    if (!this.events.some((event) => event.agentId === agentId && event.eventType === 'PARK')) {
+      throw new Error('A PARK event is required before Reactivate.');
+    }
+
+    const current = this.versions.find((item) => item.agentId === agentId && item.versionNumber === agent.currentVersion);
+    if (!current) throw new Error('Current Agent Version is missing.');
+
+    const now = new Date().toISOString();
+    const nextNumber = agent.currentVersion + 1;
+    const reactivationRecord = { reason: reason.trim(), reactivatedAt: now };
+    const reactivationHistory = [...(current.stateJson.reactivationHistory ?? []), reactivationRecord];
+    const version: Version = {
+      id: randomUUID(),
+      agentId,
+      versionNumber: nextNumber,
+      versionType: 'REACTIVATED',
+      stateJson: {
+        ...current.stateJson,
+        reactivationHistory,
+        latestReactivation: reactivationRecord,
+      },
+      changeSummary: `Agent reactivated: ${reactivationRecord.reason}`,
+      createdByOwnerId: ownerId,
+      createdAt: now,
+    };
+    const event: Event = {
+      id: randomUUID(),
+      agentId,
+      eventType: 'REACTIVATE',
+      actorOwnerId: ownerId,
+      metadataJson: { version: String(nextNumber) },
+      createdAt: now,
+    };
+
+    this.versions.push(version);
+    this.events.push(event);
+    agent.status = 'ACTIVE';
+    agent.currentVersion = nextNumber;
+    agent.updatedAt = now;
+    return (await this.detail(agentId))!;
+  }
+
   async reset() {
     this.agents = [];
     this.versions = [];
@@ -301,5 +352,6 @@ export function publicAgent(detail: AgentDetail) {
     latestPublicDevelopmentSummary: detail.version.stateJson.latestDevelopment?.publicDevelopmentSummary ?? null,
     developed: detail.events.some((event) => event.eventType === 'DEVELOP'),
     parked: detail.agent.status === 'PARKED',
+    reactivated: detail.events.some((event) => event.eventType === 'REACTIVATE'),
   };
 }

@@ -11,6 +11,7 @@ import { SameOriginHttpsDomainVerificationService } from '@/lib/domain-verificat
 import { developAgentLifecycle } from '@/lib/develop-agent';
 import { developmentService } from '@/lib/development';
 import { parkAgentLifecycle } from '@/lib/park-agent';
+import { reactivateAgentLifecycle } from '@/lib/reactivate-agent';
 
 export type CreateState = { error?: string };
 
@@ -99,6 +100,25 @@ export async function parkAgent(_previous: ParkState, formData: FormData): Promi
     );
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Unable to park the Agent.' };
+  }
+  redirect(`/agents/${agentId}`);
+}
+
+export type ReactivateState = { error?: string };
+
+export async function reactivateAgent(_previous: ReactivateState, formData: FormData): Promise<ReactivateState> {
+  let agentId: string;
+  try {
+    const owner = await requireOwner();
+    agentId = String(formData.get('agentId'));
+    await reactivateAgentLifecycle(
+      { reason: formData.get('reactivationReason') },
+      agentId,
+      owner.id,
+      { repository },
+    );
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Unable to reactivate the Agent.' };
   }
   redirect(`/agents/${agentId}`);
 }

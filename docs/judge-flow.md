@@ -1,14 +1,15 @@
 # Judge flow
 
-1. Select Owner A and open Atlas at verified State Version 2.
-2. In **Develop Atlas**, select **Use Atlas development example**.
-3. Submit **Develop Agent** and allow GPT-5.6 to produce the structured work result.
-4. Confirm Atlas retains its ID, owner, Manifest, and canonical domain while advancing to Version 3.
-5. Inspect the `DEVELOP` timeline event and Version History entries for Versions 1, 2, and 3.
-6. In **Park Atlas**, select **Use parking example** and submit **Park Agent**.
-7. Confirm Atlas advances to Version 4, status becomes `PARKED`, one `PARK` event appears, and Versions 1–3 remain unchanged.
-8. Confirm the Develop form disappears while parked and Reactivate is marked as the next lifecycle phase.
-9. Open the public card and confirm it shows the safe public development summary, verified domain, and parked status—not raw inputs, parking reason, private rules, or owner identity.
-10. Select Owner B and confirm Atlas remains inaccessible privately.
+1. Select Owner A and open Atlas.
+2. Inspect the same Agent ID, verified canonical domain, and immutable Version History.
+3. Confirm `CREATE`, `BIND_DOMAIN`, and `DEVELOP` in the event trail.
+4. Park Atlas and confirm the next sequential version, status `PARKED`, and exactly one `PARK` event.
+5. Confirm Develop is unavailable while parked and the public card exposes no private parking reason.
+6. Reactivate Atlas using the example reason.
+7. Confirm the next sequential version is `REACTIVATED`, status returns to `ACTIVE`, and exactly one `REACTIVATE` event appears.
+8. Confirm Versions 1 through the parked checkpoint are unchanged and the verified domain, Manifest, Development Record, and Park Record remain intact.
+9. Confirm Develop is available again after Reactivate.
+10. Open the public card and confirm it shows safe public identity, verified domain, public development summary, ACTIVE status, and reactivated continuity badge—not private lifecycle reasons or owner identity.
+11. Select Owner B and confirm Atlas remains inaccessible privately.
 
-Do not reset production. Reactivate, Transfer, and Continue are not implemented.
+Do not reset production. Transfer and Continue are not implemented.
