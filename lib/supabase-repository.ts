@@ -220,6 +220,16 @@ export class SupabaseRepository implements Repository {
     return mapDomainCompletionRpcResult(data);
   }
 
+  async park(agentId: string, ownerId: string, reason: string): Promise<AgentDetail> {
+    const { data, error } = await this.client.rpc('park_agent', {
+      p_agent_id: agentId,
+      p_owner_id: ownerId,
+      p_reason: reason,
+    });
+    if (error || !data) throw new Error(error?.message ?? 'Unable to park Agent.');
+    return mapDomainCompletionRpcResult(data);
+  }
+
   async reset(): Promise<void> {
     const { error } = await this.client.from('agents').delete().neq('id', '');
     if (error) throw error;
