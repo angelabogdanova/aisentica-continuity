@@ -60,10 +60,11 @@ export async function bindDomain(_previous: BindDomainState, formData: FormData)
   let agentId: string;
   try {
     const owner = await requireOwner();
+    const requestHeaders = await headers();
     agentId = String(formData.get('agentId'));
-    await bindCurrentDomain(agentId, owner.id, (await headers()).get('host'), {
+    await bindCurrentDomain(agentId, owner.id, requestHeaders.get('host'), {
       repository,
-      verifier: new SameOriginHttpsDomainVerificationService(),
+      verifier: new SameOriginHttpsDomainVerificationService(fetch, requestHeaders.get('cookie') ?? undefined),
     });
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Domain verification failed.' };
