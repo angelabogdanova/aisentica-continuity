@@ -1,0 +1,3 @@
+import './globals.css'; import Link from 'next/link';
+export const metadata={title:'Aisentica Continuity',description:'Domain-Anchored Continuity for Transferable AI Agents'};
+export default function Layout({children}:{children:React.ReactNode}){return <><header className="border-b border-zinc-800"><nav className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4"><Link href="/" className="font-bold tracking-tight">AISENTICA <span className="text-red-400">CONTINUITY</span></Link><Link href="/demo" className="text-sm text-zinc-300 hover:text-white">Demo access</Link></nav></header>{children}<footer className="mx-auto max-w-6xl px-5 py-10 text-xs text-zinc-500">Aisentica Continuity · OpenAI Build Week · Live MVP</footer></>}
