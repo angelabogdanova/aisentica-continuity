@@ -82,14 +82,7 @@ describe('Reactivate lifecycle', () => {
     await expect(reactivateAgentLifecycle({ reason: reactivateReason }, agentId, 'owner-a', { repository: repo })).resolves.toBe(agentId);
 
     const after = await repo.detail(agentId);
-    expect(after?.agent).toMatchObject({
-      id: agentId,
-      canonicalName: 'Atlas',
-      ownerId: 'owner-a',
-      canonicalDomain: 'app.example.com',
-      status: 'ACTIVE',
-      currentVersion: 5,
-    });
+    expect(after?.agent).toMatchObject({ id: agentId, canonicalName: 'Atlas', ownerId: 'owner-a', canonicalDomain: 'app.example.com', status: 'ACTIVE', currentVersion: 5 });
     expect(after?.versions.slice(0, 4)).toEqual(snapshots);
     expect(after?.version.versionType).toBe('REACTIVATED');
     expect(after?.version.stateJson.developmentHistory).toEqual([development]);
@@ -102,10 +95,7 @@ describe('Reactivate lifecycle', () => {
   it('allows Develop again after Reactivate and continues sequential versioning', async () => {
     const { repo, agentId } = await parkedRepository();
     await reactivateAgentLifecycle({ reason: reactivateReason }, agentId, 'owner-a', { repository: repo });
-    await developAgentLifecycle(developmentInput, agentId, 'owner-a', {
-      repository: repo,
-      development: new DeterministicDevelopmentService(development),
-    });
+    await developAgentLifecycle(developmentInput, agentId, 'owner-a', { repository: repo, development: new DeterministicDevelopmentService(development) });
     const after = await repo.detail(agentId);
     expect(after?.agent.currentVersion).toBe(6);
     expect(after?.version.versionType).toBe('DEVELOPMENT');
@@ -134,6 +124,8 @@ describe('Reactivate lifecycle', () => {
       develop: true,
       park: true,
       reactivate: true,
+      transfer: false,
+      continue: false,
     });
   });
 });
