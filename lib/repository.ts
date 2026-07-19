@@ -15,6 +15,7 @@ export interface Repository {
   failDomainBinding(agentId: string, ownerId: string, bindingId: string): Promise<void>;
   completeDomainBinding(agentId: string, ownerId: string, bindingId: string): Promise<AgentDetail>;
   develop(agentId: string, ownerId: string, development: DevelopmentRecord): Promise<AgentDetail>;
+  park(agentId: string, ownerId: string, reason: string): Promise<AgentDetail>;
   reset(): Promise<void>;
 }
 
@@ -221,6 +222,56 @@ export class MemoryRepository implements Repository {
     return (await this.detail(agentId))!;
   }
 
+  async park(agentId: string, ownerId: string, reason: string): Promise<AgentDetail> {
+    const agent = this.agents.find((item) => item.id === agentId);
+    if (!agent) throw new Error('Agent not found.');
+    if (agent.ownerId !== ownerId) throw new Error('You are not authorized to park this agent.');
+    if (agent.status !== 'ACTIVE') throw new Error('Only ACTIVE agents can be parked.');
+    if (!agent.canonicalDomain || agent.currentVersion < 3) {
+      throw new Error('The agent must have a verified domain and developed state before Park.');
+    }
+    if (!this.events.some((event) => event.agentId === agentId && event.eventType === 'DEVELOP')) {
+      throw new Error('At least one DEVELOP event is required before Park.');
+    }
+
+    const current = this.versions.find((item) => item.agentId === agentId && item.versionNumber === agent.currentVersion);
+    if (!current) throw new Error('Current Agent Version is missing.');
+
+    const now = new Date().toISOString();
+    const nextNumber = agent.currentVersion + 1;
+    const parkRecord = { reason: reason.trim(), parkedAt: now };
+    const parkHistory = [...(current.stateJson.parkHistory ?? []), parkRecord];
+    const version: Version = {
+      id: randomUUID(),
+      agentId,
+      versionNumber: nextNumber,
+      versionType: 'PARKED',
+      stateJson: {
+        ...current.stateJson,
+        parkHistory,
+        latestPark: parkRecord,
+      },
+      changeSummary: `Agent parked: ${parkRecord.reason}`,
+      createdByOwnerId: ownerId,
+      createdAt: now,
+    };
+    const event: Event = {
+      id: randomUUID(),
+      agentId,
+      eventType: 'PARK',
+      actorOwnerId: ownerId,
+      metadataJson: { version: String(nextNumber) },
+      createdAt: now,
+    };
+
+    this.versions.push(version);
+    this.events.push(event);
+    agent.status = 'PARKED';
+    agent.currentVersion = nextNumber;
+    agent.updatedAt = now;
+    return (await this.detail(agentId))!;
+  }
+
   async reset() {
     this.agents = [];
     this.versions = [];
@@ -249,5 +300,6 @@ export function publicAgent(detail: AgentDetail) {
     publicIdentitySummary: detail.version.stateJson.publicIdentitySummary,
     latestPublicDevelopmentSummary: detail.version.stateJson.latestDevelopment?.publicDevelopmentSummary ?? null,
     developed: detail.events.some((event) => event.eventType === 'DEVELOP'),
+    parked: detail.agent.status === 'PARKED',
   };
 }
