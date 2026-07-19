@@ -2,6 +2,7 @@ import './globals.css';
 import './record-controls.css';
 import Link from 'next/link';
 
+// Production refresh marker for the editorial continuity release.
 export const metadata = {
   title: {
     default: 'Aisentica Continuity',
