@@ -10,55 +10,23 @@ import { lifecycleCompletion } from '@/components/lifecycle';
 import type { DevelopmentRecord, Manifest } from '@/lib/types';
 
 const manifest: Manifest = {
-  canonicalName: 'Atlas',
-  role: 'Research Agent',
-  purpose: 'Conduct structured research and preserve validated methods across tasks.',
-  field: 'Research',
-  capabilities: ['Research'],
-  operatingPrinciples: ['Traceability'],
-  memorySchema: ['Sources'],
-  transferableStateRules: ['Preserve history'],
-  privateOwnerDataRules: ['Keep credentials private'],
-  publicIdentitySummary: 'Atlas is a public research identity with traceable methods.',
+  canonicalName: 'Atlas', role: 'Research Agent', purpose: 'Conduct structured research and preserve validated methods across tasks.', field: 'Research', capabilities: ['Research'], operatingPrinciples: ['Traceability'], memorySchema: ['Sources'], transferableStateRules: ['Preserve history'], privateOwnerDataRules: ['Keep credentials private'], publicIdentitySummary: 'Atlas is a public research identity with traceable methods.',
 };
-
-const developmentInput = {
-  task: 'Create a compact source-verification protocol for historical claims.',
-  contextAndEvidence: 'Primary documents, scholarship, metadata, and translations may conflict or omit provenance.',
-  successCriteria: 'Separate facts, inferences, unresolved questions, and follow-up checks.',
-};
-
+const developmentInput = { task: 'Create a compact source-verification protocol for historical claims.', contextAndEvidence: 'Primary documents, scholarship, metadata, and translations may conflict or omit provenance.', successCriteria: 'Separate facts, inferences, unresolved questions, and follow-up checks.' };
 const development: DevelopmentRecord = {
-  taskSummary: 'Develop a source-verification protocol.',
-  workResult: 'Classify claims, record provenance, compare evidence, label inference, and log follow-up checks.',
-  validatedKnowledge: [],
-  reusableMethods: ['Separate facts from inference.'],
-  evidenceAssessment: ['The supplied context was not externally verified.'],
-  corrections: [],
-  openQuestions: ['Which primary records are available?'],
-  limitations: ['No external verification was performed.'],
-  confidenceStatement: 'High confidence in the method, not in any unstated historical claim.',
-  publicDevelopmentSummary: 'Developed a reusable source-verification method.',
+  taskSummary: 'Develop a source-verification protocol.', workResult: 'Classify claims, record provenance, compare evidence, label inference, and log follow-up checks.', validatedKnowledge: [], reusableMethods: ['Separate facts from inference.'], evidenceAssessment: ['The supplied context was not externally verified.'], corrections: [], openQuestions: ['Which primary records are available?'], limitations: ['No external verification was performed.'], confidenceStatement: 'High confidence in the method, not in any unstated historical claim.', publicDevelopmentSummary: 'Developed a reusable source-verification method.',
 };
-
 const reason = 'Pause the agent after completing the development cycle while preserving its full immutable state.';
 
 async function boundRepository() {
   const repo = new MemoryRepository();
   const created = await repo.create('owner-a', manifest);
-  await bindCurrentDomain(created.agent.id, 'owner-a', 'app.example.com', {
-    repository: repo,
-    verifier: new DeterministicDomainVerificationService(),
-  });
+  await bindCurrentDomain(created.agent.id, 'owner-a', 'app.example.com', { repository: repo, verifier: new DeterministicDomainVerificationService() });
   return { repo, agentId: created.agent.id };
 }
-
 async function developedRepository() {
   const { repo, agentId } = await boundRepository();
-  await developAgentLifecycle(developmentInput, agentId, 'owner-a', {
-    repository: repo,
-    development: new DeterministicDevelopmentService(development),
-  });
+  await developAgentLifecycle(developmentInput, agentId, 'owner-a', { repository: repo, development: new DeterministicDevelopmentService(development) });
   return { repo, agentId };
 }
 
@@ -71,7 +39,6 @@ describe('Park lifecycle', () => {
   it('rejects another owner and agents without developed state', async () => {
     const developed = await developedRepository();
     await expect(parkAgentLifecycle({ reason }, developed.agentId, 'owner-b', { repository: developed.repo })).rejects.toThrow('authorized');
-
     const bound = await boundRepository();
     await expect(parkAgentLifecycle({ reason }, bound.agentId, 'owner-a', { repository: bound.repo })).rejects.toThrow('developed state');
   });
@@ -80,18 +47,9 @@ describe('Park lifecycle', () => {
     const { repo, agentId } = await developedRepository();
     const before = await repo.detail(agentId);
     const snapshots = structuredClone(before!.versions);
-
     await expect(parkAgentLifecycle({ reason }, agentId, 'owner-a', { repository: repo })).resolves.toBe(agentId);
-
     const after = await repo.detail(agentId);
-    expect(after?.agent).toMatchObject({
-      id: agentId,
-      canonicalName: 'Atlas',
-      ownerId: 'owner-a',
-      canonicalDomain: 'app.example.com',
-      status: 'PARKED',
-      currentVersion: 4,
-    });
+    expect(after?.agent).toMatchObject({ id: agentId, canonicalName: 'Atlas', ownerId: 'owner-a', canonicalDomain: 'app.example.com', status: 'PARKED', currentVersion: 4 });
     expect(after?.versions.slice(0, 3)).toEqual(snapshots);
     expect(after?.version.versionType).toBe('PARKED');
     expect(after?.version.stateJson.developmentHistory).toEqual([development]);
@@ -104,16 +62,10 @@ describe('Park lifecycle', () => {
     const { repo, agentId } = await developedRepository();
     await parkAgentLifecycle({ reason }, agentId, 'owner-a', { repository: repo });
     const before = await repo.detail(agentId);
-
     await expect(parkAgentLifecycle({ reason }, agentId, 'owner-a', { repository: repo })).rejects.toThrow('ACTIVE');
-
     const develop = vi.fn(async () => development);
-    await expect(developAgentLifecycle(developmentInput, agentId, 'owner-a', {
-      repository: repo,
-      development: { develop },
-    })).rejects.toThrow('ACTIVE');
+    await expect(developAgentLifecycle(developmentInput, agentId, 'owner-a', { repository: repo, development: { develop } })).rejects.toThrow('ACTIVE');
     expect(develop).not.toHaveBeenCalled();
-
     const after = await repo.detail(agentId);
     expect(after?.versions).toHaveLength(before?.versions.length ?? 0);
     expect(after?.events.filter((event) => event.eventType === 'PARK')).toHaveLength(1);
@@ -132,12 +84,6 @@ describe('Park lifecycle', () => {
   it('derives Park completion from the event trail', async () => {
     const { repo, agentId } = await developedRepository();
     await parkAgentLifecycle({ reason }, agentId, 'owner-a', { repository: repo });
-    expect(lifecycleCompletion((await repo.detail(agentId))!.events)).toEqual({
-      create: true,
-      bindDomain: true,
-      develop: true,
-      park: true,
-      reactivate: false,
-    });
+    expect(lifecycleCompletion((await repo.detail(agentId))!.events)).toEqual({ create: true, bindDomain: true, develop: true, park: true, reactivate: false, transfer: false, continue: false });
   });
 });
