@@ -32,7 +32,8 @@ const demoOwners: Owner[] = [
 type StoredTransferOffer = TransferOffer & { tokenHash: string };
 
 function safeTransferOffer(offer: StoredTransferOffer): TransferOffer {
-  const { tokenHash: _tokenHash, ...safe } = offer;
+  const safe = { ...offer };
+  delete (safe as Partial<StoredTransferOffer>).tokenHash;
   return safe;
 }
 

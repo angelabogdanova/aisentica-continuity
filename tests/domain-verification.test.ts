@@ -21,9 +21,11 @@ describe('same-origin HTTPS domain verification', () => {
   });
 
   it('forwards the current request cookie only to the expected same-origin proof request', async () => {
-    const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      new Response(JSON.stringify(proof), { status: 200, headers: { 'content-type': 'application/json' } }),
-    );
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      void init;
+      return new Response(JSON.stringify(proof), { status: 200, headers: { 'content-type': 'application/json' } });
+    });
     const cookie = '_vercel_jwt=temporary-protection-cookie; ac_demo_session=signed-owner';
 
     await new SameOriginHttpsDomainVerificationService(fetcher as unknown as typeof fetch, cookie).verify(proof);
@@ -37,9 +39,11 @@ describe('same-origin HTTPS domain verification', () => {
   });
 
   it('omits the cookie header for an unprotected request context', async () => {
-    const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      new Response(JSON.stringify(proof), { status: 200, headers: { 'content-type': 'application/json' } }),
-    );
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      void init;
+      return new Response(JSON.stringify(proof), { status: 200, headers: { 'content-type': 'application/json' } });
+    });
 
     await new SameOriginHttpsDomainVerificationService(fetcher as unknown as typeof fetch).verify(proof);
 
@@ -48,12 +52,14 @@ describe('same-origin HTTPS domain verification', () => {
   });
 
   it('rejects a proof whose token does not match the pending challenge', async () => {
-    const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      new Response(JSON.stringify({ ...proof, verificationToken: 'wrong-token' }), {
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      void init;
+      return new Response(JSON.stringify({ ...proof, verificationToken: 'wrong-token' }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
-      }),
-    );
+      });
+    });
 
     await expect(
       new SameOriginHttpsDomainVerificationService(fetcher as unknown as typeof fetch).verify(proof),
