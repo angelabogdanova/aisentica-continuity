@@ -8,6 +8,8 @@ import { createAgentLifecycle } from '@/lib/create-agent';
 import { repository } from '@/lib/repository';
 import { bindCurrentDomain } from '@/lib/bind-domain';
 import { SameOriginHttpsDomainVerificationService } from '@/lib/domain-verification';
+import { developAgentLifecycle } from '@/lib/develop-agent';
+import { developmentService } from '@/lib/development';
 
 export type CreateState = { error?: string };
 
@@ -54,6 +56,29 @@ export async function bindDomain(_previous: BindDomainState, formData: FormData)
     });
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Domain verification failed.' };
+  }
+  redirect(`/agents/${agentId}`);
+}
+
+export type DevelopState = { error?: string };
+
+export async function developAgent(_previous: DevelopState, formData: FormData): Promise<DevelopState> {
+  let agentId: string;
+  try {
+    const owner = await requireOwner();
+    agentId = String(formData.get('agentId'));
+    await developAgentLifecycle(
+      {
+        task: formData.get('task'),
+        contextAndEvidence: formData.get('contextAndEvidence'),
+        successCriteria: formData.get('successCriteria'),
+      },
+      agentId,
+      owner.id,
+      { repository, development: developmentService },
+    );
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Unable to develop the Agent.' };
   }
   redirect(`/agents/${agentId}`);
 }
