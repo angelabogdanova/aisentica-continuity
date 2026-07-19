@@ -3,22 +3,22 @@
 **Domain-Anchored Continuity for Transferable AI Agents.** Aisentica treats an agent as a persistent digital asset whose identity and structured state remain continuous across lifecycle changes.
 
 ## Problem and solution
-Agents are commonly copied, recreated, or trapped in one account. Aisentica creates a stable identity and immutable version history so domain binding, professional development, and future ownership transfer preserve one trajectory rather than fork a copy.
+Agents are commonly copied, recreated, or trapped in one account. Aisentica creates a stable identity and immutable version history so domain binding, professional development, availability changes, and future ownership transfer preserve one trajectory rather than fork a copy.
 
 ## Lifecycle
 `Create → Bind Domain → Develop → Park → Reactivate → Transfer → Continue`.
 
-Phases 1–3 implement **Create**, **Bind Domain**, and **Develop**: signed demo-owner selection, server validation, GPT-5.6 manifest generation, immutable Version 1, a same-origin HTTPS domain challenge, atomic verified Version 2, and repeatable GPT-5.6 development records beginning with Version 3. Later lifecycle operations remain intentionally unimplemented.
+Phases 1–4 implement **Create**, **Bind Domain**, **Develop**, and **Park**: signed demo-owner selection, server validation, GPT-5.6 manifest generation, immutable Version 1, a same-origin HTTPS domain challenge, atomic verified Version 2, repeatable GPT-5.6 Development Records beginning with Version 3, and atomic transition from `ACTIVE` to `PARKED` without deleting history. Later lifecycle operations remain intentionally unimplemented.
 
 ## Architecture and data
 Next.js App Router server actions validate forms and signed demo cookies before writes. `AIService` and `DevelopmentService` isolate the OpenAI Responses API. `Repository` separates lifecycle orchestration from persistence. Tests use `MemoryRepository`; deployed environments use the server-only `SupabaseRepository`.
 
-The production Postgres schema is defined by ordered migrations in `supabase/migrations/`. Atomic `SECURITY DEFINER` RPCs create the initial agent state, complete verified domain binding, and append development state without rewriting prior versions.
+The production Postgres schema is defined by ordered migrations in `supabase/migrations/`. Atomic `SECURITY DEFINER` RPCs create initial state, complete verified domain binding, append development state, and park an Agent without rewriting prior versions.
 
 ## GPT-5.6
 With `OPENAI_API_KEY`, Create and Develop call the official OpenAI JavaScript SDK Responses API using `OPENAI_MODEL` (default `gpt-5.6`) and validate strict structured output with Zod before persistence. Without a key the app fails clearly unless `ENABLE_LOCAL_AI_FALLBACK=true`; the UI labels this deterministic fallback and never calls it GPT-5.6.
 
-Owner-supplied development context is treated as untrusted material, not automatically verified truth. The model is instructed not to invent sources, claim external verification, retain secrets, or alter canonical identity and prior history.
+Owner-supplied development context is treated as untrusted material, not automatically verified truth. The model is instructed not to invent sources, claim external verification, retain secrets, or alter canonical identity and prior history. Park is deterministic and does not call a model.
 
 ## Local setup
 ```bash
@@ -37,8 +37,9 @@ Apply these migrations in filename order:
 3. `003_production_schema_alignment.sql`
 4. `004_bind_domain.sql`
 5. `005_develop.sql`
+6. `006_park.sql`
 
-Migration 003 aligns the Create RPC, enables RLS on all six lifecycle tables, restricts table and function access to `service_role`, and preserves Owner A and Owner B. Migration 004 adds constrained domain-binding states, verified-domain uniqueness, owner-authorized RPCs, and atomic creation of Version 2 plus `BIND_DOMAIN`. Migration 005 adds the atomic Develop RPC, preserving all prior records while appending the next sequential `DEVELOPMENT` version and one `DEVELOP` event.
+Migration 003 aligns the Create RPC, enables RLS on all six lifecycle tables, restricts table and function access to `service_role`, and preserves Owner A and Owner B. Migration 004 adds constrained domain-binding states, verified-domain uniqueness, owner-authorized RPCs, and atomic creation of Version 2 plus `BIND_DOMAIN`. Migration 005 adds the atomic Develop RPC, preserving all prior records while appending the next sequential `DEVELOPMENT` version and one `DEVELOP` event. Migration 006 adds the owner-authorized atomic Park RPC, appending a `PARKED` version and one `PARK` event while changing only availability.
 
 Map the Supabase values into Vercel without committing their real contents:
 
@@ -56,22 +57,23 @@ Add the remaining server-only variables from `.env.example` in Vercel and deploy
 ## Judge demo
 1. Open `/demo` and choose Owner A.
 2. Open Atlas at verified State Version 2.
-3. In **Develop Atlas**, select **Use Atlas development example**.
-4. Submit **Develop Agent** and allow GPT-5.6 to produce the structured Development Record.
-5. Confirm Atlas keeps the same ID, owner, Manifest, and verified domain while advancing to Version 3.
-6. Inspect the `DEVELOP` timeline event and Version History for Versions 1, 2, and 3.
-7. Open the public card and confirm it shows only the verified domain and safe public development summary.
-8. Switch to Owner B and confirm Atlas remains inaccessible privately.
+3. In **Develop Atlas**, select **Use Atlas development example** and submit **Develop Agent**.
+4. Confirm Atlas keeps the same ID, owner, Manifest, and verified domain while advancing to Version 3 with a `DEVELOP` event.
+5. In **Park Atlas**, use the parking example and submit **Park Agent**.
+6. Confirm Atlas advances to Version 4, status changes to `PARKED`, one `PARK` event appears, and Versions 1–3 remain unchanged.
+7. Confirm Develop is unavailable while parked and Reactivate is shown as the next lifecycle phase.
+8. Open the public card and confirm only safe identity, verified domain, public development summary, and parked status are visible.
+9. Switch to Owner B and confirm Atlas remains inaccessible privately.
 
 Do not reset the production demonstration.
 
 ## Security and limitations
-Cookies are signed and HTTP-only; every mutation resolves and authorizes its owner server-side. Supabase tables use RLS, public roles have no lifecycle-table access, and lifecycle RPCs are restricted to `service_role`. The domain proof accepts only the validated current request hostname and a fixed HTTPS well-known path. Develop inputs are bounded, validated server-side, treated as untrusted text, and never rendered as HTML.
+Cookies are signed and HTTP-only; every mutation resolves and authorizes its owner server-side. Supabase tables use RLS, public roles have no lifecycle-table access, and lifecycle RPCs are restricted to `service_role`. The domain proof accepts only the validated current request hostname and a fixed HTTPS well-known path. Develop inputs are bounded, validated server-side, treated as untrusted text, and never rendered as HTML. Park validates owner, current status, verified domain, prior development, and bounded reason before one atomic write.
 
 This remains a hackathon demonstration. Production use requires real user authentication, owner-aware authorization policies, rate limiting, audit controls, monitoring, and the remaining lifecycle stages.
 
 ## Public and private state
-Private Agent pages expose the complete current state and immutable Version History to the authorized owner. Public cards expose only stable public identity, current version, verified domain, and the latest safe `publicDevelopmentSummary`. Raw task text, context/evidence, success criteria, private rules, owner identity, credentials, verification tokens, and full structured state remain private.
+Private Agent pages expose the complete current state and immutable Version History to the authorized owner. Public cards expose only stable public identity, current version, verified domain, current availability, and the latest safe `publicDevelopmentSummary`. Raw task text, context/evidence, success criteria, parking reason, private rules, owner identity, credentials, verification tokens, and full structured state remain private.
 
 ## OpenAI Build Week
-The repository delivers the working Create, Bind Domain, and Develop stages. Codex accelerated scaffolding, validation, testing, and documentation; humans directed the product boundary, lifecycle semantics, security model, public/private separation, and continuity requirements.
+The repository delivers the working Create, Bind Domain, Develop, and Park stages. Codex accelerated initial scaffolding; the project lifecycle, state model, security boundaries, migrations, tests, public/private projections, and deployment flow are maintained through the Aisentica Continuity build process.
