@@ -140,14 +140,13 @@ Full instructions: [`judge-flow.md`](judge-flow.md)
 
 ## Repository access
 
-Current repository visibility: private.
+Current repository visibility: public.
 
-Before submission, invite both judging accounts as repository collaborators:
+The repository can be inspected without collaborator invitations:
 
-- testing@devpost.com
-- build-week-event@openai.com
+https://github.com/angelabogdanova/aisentica-continuity
 
-Alternative: make the repository public and add an appropriate open-source license.
+No open-source license has been granted yet; public visibility permits inspection but does not by itself grant reuse rights.
 
 ## Demo video
 
@@ -159,9 +158,11 @@ Script: [`video-script.md`](video-script.md)
 
 ## Codex Session ID
 
-Primary `/feedback` Codex Session ID: `[PASTE INTO DEVPOST FORM — DO NOT INVENT]`
+Primary `/feedback` Codex Session ID:
 
-Use the primary thread where the majority of the core functionality was built.
+`task_e_6a5b77b229ac8331a5f2488d3f4a352b`
+
+The ID belongs to the primary thread where the initial core functionality was built. `/feedback` was submitted in that thread through the Codex web interface.
 
 ## Final submission checklist
 
@@ -169,10 +170,10 @@ Use the primary thread where the majority of the core functionality was built.
 - [ ] Paste the project description.
 - [ ] Add public YouTube video under three minutes.
 - [ ] Confirm the video includes spoken explanation of Codex and GPT-5.6.
-- [ ] Add repository URL.
-- [ ] Share private repository with both judging email addresses or make it public with a license.
-- [ ] Run `/feedback` in the primary Codex build thread.
-- [ ] Paste the exact Session ID into Devpost.
-- [ ] Confirm README, setup instructions, supported platforms, and no-rebuild test path.
-- [ ] Recheck the production demo and public Atlas card.
+- [x] Add repository URL.
+- [x] Confirm the repository is public and externally inspectable.
+- [x] Run `/feedback` in the primary Codex build thread.
+- [x] Record the verified Codex task identifier for the Devpost Session ID field.
+- [x] Confirm README, setup instructions, supported platforms, and no-rebuild test path.
+- [x] Recheck the production demo and public Atlas card.
 - [ ] Submit before July 21, 2026 at 5:00 PM Pacific Time.
