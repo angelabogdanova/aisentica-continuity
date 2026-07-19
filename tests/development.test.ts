@@ -10,44 +10,18 @@ import { lifecycleCompletion } from '@/components/lifecycle';
 import type { DevelopmentRecord, Manifest } from '@/lib/types';
 
 const manifest: Manifest = {
-  canonicalName: 'Atlas',
-  role: 'Research Agent',
-  purpose: 'Conduct structured research and preserve validated methods across tasks.',
-  field: 'Research',
-  capabilities: ['Research'],
-  operatingPrinciples: ['Traceability'],
-  memorySchema: ['Sources'],
-  transferableStateRules: ['Preserve history'],
-  privateOwnerDataRules: ['Keep credentials private'],
-  publicIdentitySummary: 'Atlas is a public research identity with traceable methods.',
+  canonicalName: 'Atlas', role: 'Research Agent', purpose: 'Conduct structured research and preserve validated methods across tasks.', field: 'Research',
+  capabilities: ['Research'], operatingPrinciples: ['Traceability'], memorySchema: ['Sources'], transferableStateRules: ['Preserve history'], privateOwnerDataRules: ['Keep credentials private'], publicIdentitySummary: 'Atlas is a public research identity with traceable methods.',
 };
-
-const input = {
-  task: 'Create a compact source-verification protocol for historical claims.',
-  contextAndEvidence: 'Primary documents, scholarship, metadata, and translations may conflict or omit provenance.',
-  successCriteria: 'Separate facts, inferences, unresolved questions, and follow-up checks.',
-};
-
+const input = { task: 'Create a compact source-verification protocol for historical claims.', contextAndEvidence: 'Primary documents, scholarship, metadata, and translations may conflict or omit provenance.', successCriteria: 'Separate facts, inferences, unresolved questions, and follow-up checks.' };
 const record: DevelopmentRecord = {
-  taskSummary: 'Develop a source-verification protocol.',
-  workResult: 'Classify claims, record provenance, compare evidence, label inference, and log follow-up checks.',
-  validatedKnowledge: [],
-  reusableMethods: ['Separate facts from inference.'],
-  evidenceAssessment: ['The supplied context was not externally verified.'],
-  corrections: [],
-  openQuestions: ['Which primary records are available?'],
-  limitations: ['No external verification was performed.'],
-  confidenceStatement: 'High confidence in the method, not in any unstated historical claim.',
-  publicDevelopmentSummary: 'Developed a reusable source-verification method.',
+  taskSummary: 'Develop a source-verification protocol.', workResult: 'Classify claims, record provenance, compare evidence, label inference, and log follow-up checks.', validatedKnowledge: [], reusableMethods: ['Separate facts from inference.'], evidenceAssessment: ['The supplied context was not externally verified.'], corrections: [], openQuestions: ['Which primary records are available?'], limitations: ['No external verification was performed.'], confidenceStatement: 'High confidence in the method, not in any unstated historical claim.', publicDevelopmentSummary: 'Developed a reusable source-verification method.',
 };
 
 async function boundRepository() {
   const repo = new MemoryRepository();
   const created = await repo.create('owner-a', manifest);
-  await bindCurrentDomain(created.agent.id, 'owner-a', 'app.example.com', {
-    repository: repo,
-    verifier: new DeterministicDomainVerificationService(),
-  });
+  await bindCurrentDomain(created.agent.id, 'owner-a', 'app.example.com', { repository: repo, verifier: new DeterministicDomainVerificationService() });
   return { repo, agentId: created.agent.id };
 }
 
@@ -67,10 +41,7 @@ describe('Develop lifecycle', () => {
   it('creates no state after GPT failure', async () => {
     const { repo, agentId } = await boundRepository();
     const before = await repo.detail(agentId);
-    await expect(developAgentLifecycle(input, agentId, 'owner-a', {
-      repository: repo,
-      development: new DeterministicDevelopmentService(undefined, new Error('GPT failed')),
-    })).rejects.toThrow('GPT failed');
+    await expect(developAgentLifecycle(input, agentId, 'owner-a', { repository: repo, development: new DeterministicDevelopmentService(undefined, new Error('GPT failed')) })).rejects.toThrow('GPT failed');
     const after = await repo.detail(agentId);
     expect(after?.versions).toHaveLength(before?.versions.length ?? 0);
     expect(after?.events).toHaveLength(before?.events.length ?? 0);
@@ -87,10 +58,8 @@ describe('Develop lifecycle', () => {
     const { repo, agentId } = await boundRepository();
     const service = new DeterministicDevelopmentService(record);
     await expect(developAgentLifecycle(input, agentId, 'owner-b', { repository: repo, development: service })).rejects.toThrow('authorized');
-
     const unbound = await repo.create('owner-a', { ...manifest, canonicalName: 'Beacon' });
     await expect(developAgentLifecycle(input, unbound.agent.id, 'owner-a', { repository: repo, development: service })).rejects.toThrow('verified');
-
     const detail = await repo.detail(agentId);
     detail!.agent.status = 'PARKED';
     await expect(developAgentLifecycle(input, agentId, 'owner-a', { repository: repo, development: service })).rejects.toThrow('ACTIVE');
@@ -100,20 +69,9 @@ describe('Develop lifecycle', () => {
     const { repo, agentId } = await boundRepository();
     const before = await repo.detail(agentId);
     const snapshots = structuredClone(before!.versions);
-
-    await expect(developAgentLifecycle(input, agentId, 'owner-a', {
-      repository: repo,
-      development: new DeterministicDevelopmentService(record),
-    })).resolves.toBe(agentId);
-
+    await expect(developAgentLifecycle(input, agentId, 'owner-a', { repository: repo, development: new DeterministicDevelopmentService(record) })).resolves.toBe(agentId);
     const after = await repo.detail(agentId);
-    expect(after?.agent).toMatchObject({
-      id: agentId,
-      canonicalName: 'Atlas',
-      ownerId: 'owner-a',
-      canonicalDomain: 'app.example.com',
-      currentVersion: 3,
-    });
+    expect(after?.agent).toMatchObject({ id: agentId, canonicalName: 'Atlas', ownerId: 'owner-a', canonicalDomain: 'app.example.com', currentVersion: 3 });
     expect(after?.versions.slice(0, 2)).toEqual(snapshots);
     expect(after?.version.versionType).toBe('DEVELOPMENT');
     expect(after?.version.stateJson.capabilities).toEqual(manifest.capabilities);
@@ -135,10 +93,7 @@ describe('Develop lifecycle', () => {
 
   it('projects only safe public development state', async () => {
     const { repo, agentId } = await boundRepository();
-    await developAgentLifecycle(input, agentId, 'owner-a', {
-      repository: repo,
-      development: new DeterministicDevelopmentService(record),
-    });
+    await developAgentLifecycle(input, agentId, 'owner-a', { repository: repo, development: new DeterministicDevelopmentService(record) });
     const safe = publicAgent((await repo.detail(agentId))!);
     expect(safe.latestPublicDevelopmentSummary).toBe(record.publicDevelopmentSummary);
     const json = JSON.stringify(safe);
@@ -161,10 +116,7 @@ describe('Develop lifecycle', () => {
 
   it('derives lifecycle completion from events rather than version number', async () => {
     const { repo, agentId } = await boundRepository();
-    await developAgentLifecycle(input, agentId, 'owner-a', {
-      repository: repo,
-      development: new DeterministicDevelopmentService(record),
-    });
-    expect(lifecycleCompletion((await repo.detail(agentId))!.events)).toEqual({ create: true, bindDomain: true, develop: true, park: false, reactivate: false });
+    await developAgentLifecycle(input, agentId, 'owner-a', { repository: repo, development: new DeterministicDevelopmentService(record) });
+    expect(lifecycleCompletion((await repo.detail(agentId))!.events)).toEqual({ create: true, bindDomain: true, develop: true, park: false, reactivate: false, transfer: false, continue: false });
   });
 });
