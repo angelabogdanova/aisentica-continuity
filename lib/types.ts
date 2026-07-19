@@ -1,8 +1,9 @@
 export type Owner = { id: string; displayName: string; slug: string; createdAt: string };
 export type Manifest = { canonicalName: string; role: string; purpose: string; field: string; capabilities: string[]; operatingPrinciples: string[]; memorySchema: string[]; transferableStateRules: string[]; privateOwnerDataRules: string[]; publicIdentitySummary: string };
-export type VersionState = Manifest & { canonicalDomain?: string; domainVerificationStatus?: 'VERIFIED'; domainVerifiedAt?: string };
-export type Agent = { id: string; canonicalName: string; role: string; purpose: string; field: string; ownerId: string; status: 'ACTIVE'; canonicalDomain: string | null; currentVersion: number; createdAt: string; updatedAt: string };
-export type Version = { id: string; agentId: string; versionNumber: number; versionType: 'INITIAL_MANIFEST' | 'DOMAIN_BINDING'; stateJson: VersionState; changeSummary: string; createdByOwnerId: string; createdAt: string };
-export type Event = { id: string; agentId: string; eventType: 'CREATE' | 'BIND_DOMAIN'; actorOwnerId: string; metadataJson: Record<string, string>; createdAt: string };
+export type DevelopmentRecord = { taskSummary: string; workResult: string; validatedKnowledge: string[]; reusableMethods: string[]; evidenceAssessment: string[]; corrections: string[]; openQuestions: string[]; limitations: string[]; confidenceStatement: string; publicDevelopmentSummary: string };
+export type VersionState = Manifest & { canonicalDomain?: string; domainVerificationStatus?: 'VERIFIED'; domainVerifiedAt?: string; developmentHistory?: DevelopmentRecord[]; latestDevelopment?: DevelopmentRecord };
+export type Agent = { id: string; canonicalName: string; role: string; purpose: string; field: string; ownerId: string; status: 'ACTIVE' | 'PARKED'; canonicalDomain: string | null; currentVersion: number; createdAt: string; updatedAt: string };
+export type Version = { id: string; agentId: string; versionNumber: number; versionType: 'INITIAL_MANIFEST' | 'DOMAIN_BINDING' | 'DEVELOPMENT'; stateJson: VersionState; changeSummary: string; createdByOwnerId: string; createdAt: string };
+export type Event = { id: string; agentId: string; eventType: 'CREATE' | 'BIND_DOMAIN' | 'DEVELOP'; actorOwnerId: string; metadataJson: Record<string, string>; createdAt: string };
 export type DomainBinding = { id: string; agentId: string; domain: string; verificationToken: string; verificationStatus: 'PENDING' | 'VERIFIED' | 'FAILED'; verifiedAt: string | null; createdAt: string };
-export type AgentDetail = { agent: Agent; owner: Owner; version: Version; events: Event[] };
+export type AgentDetail = { agent: Agent; owner: Owner; version: Version; versions: Version[]; events: Event[] };
