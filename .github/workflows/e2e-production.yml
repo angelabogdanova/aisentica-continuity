@@ -1,0 +1,35 @@
+name: Production UI E2E
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  production-ui:
+    if: github.head_ref == 'e2e-production-ui-run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      E2E_SHARE_URL: https://aisentica-continuity.vercel.app/?_vercel_share=icAQBxQvL7E4Wci7HRumiPZpjpyTNd2U
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.54.1
+          npx playwright install --with-deps chromium
+      - name: Run complete production lifecycle through the UI
+        run: node scripts/e2e-production.mjs
+      - name: Preserve E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-ui-e2e-evidence
+          path: |
+            e2e-result.json
+            e2e-final-public-card.png
+            e2e-failure.png
+          if-no-files-found: ignore
+          retention-days: 7
