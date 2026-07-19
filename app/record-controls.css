@@ -43,3 +43,31 @@
 .operation-stack section {
   box-shadow: none;
 }
+
+.card > * + * {
+  margin-top: 1.15rem;
+}
+
+.card button,
+.card .btn,
+.card .btn-muted {
+  max-width: 100%;
+}
+
+.card button.w-full,
+.card .btn.w-full,
+.card .btn-muted.w-full {
+  width: 100%;
+}
+
+.card textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.card [role='alert'] {
+  border: 1px solid var(--accent);
+  padding: 12px 14px;
+  color: var(--accent-deep);
+  background: rgba(157, 51, 42, 0.06);
+}
