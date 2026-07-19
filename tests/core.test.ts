@@ -34,7 +34,19 @@ describe('Phase 1 lifecycle', () => {
   it('orchestrates creation separately from redirect concerns', async () => { await expect(createAgentLifecycle(values, 'owner-a', { ai, repository: new MemoryRepository() })).resolves.toMatch(/^AC-/); });
   it('rejects a tampered signed session', () => { expect(verifyOwner(`${signOwner('owner-a')}x`)).toBeUndefined(); });
   it('rejects another owner modifying an agent', () => { expect(canModifyAgent('owner-b', 'owner-a')).toBe(false); });
-  it('does not expose owner or private manifest data publicly', () => { const detail: AgentDetail = { agent: { id: 'AC-TEST123', canonicalName: 'Atlas', role: 'Research Agent', purpose: manifest.purpose, field: 'Research', ownerId: 'owner-a', status: 'ACTIVE', canonicalDomain: null, currentVersion: 1, createdAt: '', updatedAt: '' }, owner: { id: 'owner-a', displayName: 'Owner A', slug: 'owner-a', createdAt: '' }, version: { id: 'v', agentId: 'AC-TEST123', versionNumber: 1, versionType: 'INITIAL_MANIFEST', stateJson: manifest, changeSummary: '', createdByOwnerId: 'owner-a', createdAt: '' }, events: [] }; const safe = publicAgent(detail); expect(safe).not.toHaveProperty('ownerId'); expect(safe).not.toHaveProperty('privateOwnerDataRules'); });
+  it('does not expose owner or private manifest data publicly', () => {
+    const version = { id: 'v', agentId: 'AC-TEST123', versionNumber: 1, versionType: 'INITIAL_MANIFEST' as const, stateJson: manifest, changeSummary: '', createdByOwnerId: 'owner-a', createdAt: '' };
+    const detail: AgentDetail = {
+      agent: { id: 'AC-TEST123', canonicalName: 'Atlas', role: 'Research Agent', purpose: manifest.purpose, field: 'Research', ownerId: 'owner-a', status: 'ACTIVE', canonicalDomain: null, currentVersion: 1, createdAt: '', updatedAt: '' },
+      owner: { id: 'owner-a', displayName: 'Owner A', slug: 'owner-a', createdAt: '' },
+      version,
+      versions: [version],
+      events: [],
+    };
+    const safe = publicAgent(detail);
+    expect(safe).not.toHaveProperty('ownerId');
+    expect(safe).not.toHaveProperty('privateOwnerDataRules');
+  });
   it('selects only explicit storage and requires production secrets', () => {
     expect(storageBackend()).toBe('memory');
     vi.stubEnv('NODE_ENV', 'production');
