@@ -1,0 +1,45 @@
+.operations-disclosure {
+  border: 1px solid var(--line-dark);
+  background: rgba(248, 246, 240, 0.42);
+}
+
+.operations-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px;
+  cursor: pointer;
+  list-style: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.operations-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.operations-disclosure > summary::after {
+  content: '+';
+  color: var(--accent);
+  font-size: 1.2rem;
+}
+
+.operations-disclosure[open] > summary::after {
+  content: '−';
+}
+
+.operation-stack {
+  display: grid;
+  gap: 18px;
+  padding: 0 18px 18px;
+}
+
+.operation-stack > .card,
+.operation-stack > form,
+.operation-stack section {
+  box-shadow: none;
+}
