@@ -1,0 +1,69 @@
+name: Render Aisentica Video
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - video/auto-capture
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      BASE_URL: https://aisentica-continuity.vercel.app
+      VOICE_URL: "https://www.aidocmaker.com/g0/audio?name=c51d102c2c534767b1468d3890caa08c"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install project and browser tooling
+        run: |
+          npm install
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Capture production scenes
+        run: |
+          node scripts/video/capture-preview.mjs
+          node scripts/video/capture-full.mjs
+
+      - name: Download generated narration
+        run: |
+          curl -L --fail --retry 3 --retry-delay 2 "$VOICE_URL" -o video-output/aisentica-voice.mp3
+          file video-output/aisentica-voice.mp3
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 video-output/aisentica-voice.mp3
+
+      - name: Render video preview
+        run: bash scripts/video/render-preview.sh
+
+      - name: Render full narrated video
+        run: bash scripts/video/render-full.sh
+
+      - name: Upload videos and source frames
+        uses: actions/upload-artifact@v4
+        with:
+          name: aisentica-video-package
+          path: |
+            video-output/aisentica-preview.mp4
+            video-output/aisentica-continuity-full-2min.mp4
+            video-output/aisentica-voice.mp3
+            video-output/shots/*.png
+            video-output/full-shots/*.png
+          if-no-files-found: error
+          retention-days: 7
