@@ -14,19 +14,19 @@ done
 
 ffmpeg -hide_banner -loglevel error -y \
   -f lavfi -i anullsrc=r=48000:cl=stereo \
-  -t 1.2 \
+  -t 0.8 \
   -c:a pcm_s16le \
   video-output/voice-pcm/silence-start.wav
 
 ffmpeg -hide_banner -loglevel error -y \
   -f lavfi -i anullsrc=r=48000:cl=stereo \
-  -t 1.5 \
+  -t 0.8 \
   -c:a pcm_s16le \
   video-output/voice-pcm/silence-gap.wav
 
 ffmpeg -hide_banner -loglevel error -y \
   -f lavfi -i anullsrc=r=48000:cl=stereo \
-  -t 3.0 \
+  -t 1.5 \
   -c:a pcm_s16le \
   video-output/voice-pcm/silence-end.wav
 
