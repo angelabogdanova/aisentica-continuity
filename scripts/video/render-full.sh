@@ -49,9 +49,11 @@ for i in "${!shots[@]}"; do
     frames=210
   fi
 
-  ffmpeg -y \
+  fadeout=$(awk "BEGIN {printf \"%.2f\", ${duration} - 0.22}")
+
+  ffmpeg -hide_banner -loglevel error -y \
     -loop 1 -framerate 30 -i "video-output/full-shots/${shot}.png" \
-    -vf "scale=2048:1152,zoompan=z='min(zoom+${zoom},${limit})':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1920x1080:fps=30,fade=t=in:st=0:d=0.22:color=white,fade=t=out:st=$(awk \"BEGIN {print ${duration}-0.22}\"):d=0.22:color=white,format=yuv420p" \
+    -vf "scale=2048:1152,zoompan=z='min(zoom+${zoom},${limit})':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1920x1080:fps=30,fade=t=in:st=0:d=0.22:color=white,fade=t=out:st=${fadeout}:d=0.22:color=white,format=yuv420p" \
     -t "$duration" \
     -an \
     -c:v libx264 \
@@ -63,13 +65,13 @@ for i in "${!shots[@]}"; do
   printf "file 'full-clips/%s.mp4'\n" "$shot" >> video-output/full-clips.txt
 done
 
-ffmpeg -y \
+ffmpeg -hide_banner -loglevel error -y \
   -f concat -safe 0 -i video-output/full-clips.txt \
   -c copy \
   -movflags +faststart \
   video-output/aisentica-full-silent.mp4
 
-ffmpeg -y \
+ffmpeg -hide_banner -loglevel error -y \
   -i video-output/aisentica-full-silent.mp4 \
   -i video-output/aisentica-voice.wav \
   -filter_complex "[1:a]loudnorm=I=-16:TP=-1.5:LRA=11,apad=pad_dur=120[a]" \
