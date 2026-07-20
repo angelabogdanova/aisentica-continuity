@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import fs from 'node:fs/promises';
 
 const baseUrl = process.env.BASE_URL || 'https://aisentica-continuity.vercel.app';
+const githubUrl = 'https://github.com/angelabogdanova/aisentica-continuity';
 const outputDir = 'video-output/full-shots';
 
 await fs.mkdir(outputDir, { recursive: true });
@@ -118,12 +119,30 @@ try {
   await page.evaluate(() => window.scrollTo(0, 0));
   await shot('16-public-card');
 
+  await page.goto(githubUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  await settle();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shot('17-github-repository');
+
+  const gptHeading = page.getByRole('heading', { name: /GPT-5\.6 integration/i }).first();
+  await scrollToLocator(gptHeading, -120);
+  await shot('18-gpt56-integration');
+
+  const codexHeading = page.getByRole('heading', { name: /How Codex was used/i }).first();
+  await scrollToLocator(codexHeading, -120);
+  await shot('19-codex-integration');
+
+  await page.goto(`${githubUrl}/actions`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  await settle();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shot('20-github-actions');
+
   await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
   await settle();
   await page.evaluate(() => window.scrollTo(0, 0));
-  await shot('17-final-home');
+  await shot('21-final-home');
 
-  console.log(`Captured full video scenes from ${baseUrl}`);
+  console.log(`Captured contest video scenes from ${baseUrl} and ${githubUrl}`);
 } finally {
   await browser.close();
 }
