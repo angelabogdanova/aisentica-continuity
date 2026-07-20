@@ -46,9 +46,16 @@ for i in "${!shots[@]}"; do
   zoom="${zooms[$i]}"
   limit="${limits[$i]}"
   clip="video-output/full-clips/${shot}.mp4"
-  duration=8
-  frames=240
-  fadeout=7.78
+
+  if [[ "$i" -eq 0 ]]; then
+    duration=8
+    frames=240
+    fadeout=7.78
+  else
+    duration=8.5
+    frames=255
+    fadeout=8.28
+  fi
 
   ffmpeg -hide_banner -loglevel error -y \
     -loop 1 -framerate 30 -i "video-output/full-shots/${shot}.png" \
@@ -73,10 +80,10 @@ ffmpeg -hide_banner -loglevel error -y \
 ffmpeg -hide_banner -loglevel error -y \
   -i video-output/aisentica-contest-silent.mp4 \
   -i video-output/aisentica-voice.wav \
-  -filter_complex "[1:a]loudnorm=I=-16:TP=-1.5:LRA=11,apad=pad_dur=168[a]" \
+  -filter_complex "[1:a]loudnorm=I=-16:TP=-1.5:LRA=11,apad=pad_dur=178[a]" \
   -map 0:v:0 \
   -map "[a]" \
-  -t 168 \
+  -t 178 \
   -c:v copy \
   -c:a aac \
   -b:a 192k \
