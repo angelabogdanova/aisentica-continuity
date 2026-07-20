@@ -11,20 +11,15 @@ shots=(
   05-atlas
 )
 
-zooms=(0.00055 0.00045 0.00050 0.00050 0.00060)
-limits=(1.055 1.045 1.050 1.050 1.060)
-
-for i in "${!shots[@]}"; do
-  shot="${shots[$i]}"
-  zoom="${zooms[$i]}"
-  limit="${limits[$i]}"
+for shot in "${shots[@]}"; do
   clip="video-output/clips/${shot}.mp4"
 
   ffmpeg -y \
     -loop 1 -framerate 30 -i "video-output/shots/${shot}.png" \
-    -vf "scale=2048:1152,zoompan=z='min(zoom+${zoom},${limit})':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=180:s=1920x1080:fps=30,fade=t=in:st=0:d=0.25,fade=t=out:st=5.75:d=0.25,format=yuv420p" \
+    -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,fade=t=in:st=0:d=0.25,fade=t=out:st=5.75:d=0.25,format=yuv420p" \
     -t 6 \
     -an \
+    -r 30 \
     -c:v libx264 \
     -preset medium \
     -crf 18 \
