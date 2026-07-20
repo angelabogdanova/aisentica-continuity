@@ -20,17 +20,23 @@ shots=(
   14-version-history-lower
   15-atlas-lifecycle
   16-public-card
-  17-final-home
+  17-github-repository
+  18-gpt56-integration
+  19-codex-integration
+  20-github-actions
+  21-final-home
 )
 
 zooms=(
-  0.00042 0.00032 0.00030 0.00034 0.00034 0.00038 0.00030 0.00028 0.00028
-  0.00030 0.00028 0.00030 0.00028 0.00028 0.00030 0.00034 0.00040
+  0.00036 0.00028 0.00028 0.00030 0.00030 0.00034 0.00028
+  0.00025 0.00025 0.00027 0.00025 0.00027 0.00025 0.00025
+  0.00027 0.00030 0.00026 0.00025 0.00025 0.00027 0.00036
 )
 
 limits=(
-  1.060 1.045 1.042 1.048 1.048 1.055 1.043 1.040 1.040
-  1.043 1.040 1.043 1.040 1.040 1.043 1.048 1.058
+  1.055 1.042 1.042 1.045 1.045 1.050 1.042
+  1.038 1.038 1.040 1.038 1.040 1.038 1.038
+  1.040 1.045 1.040 1.038 1.038 1.040 1.055
 )
 
 : > video-output/full-clips.txt
@@ -40,16 +46,9 @@ for i in "${!shots[@]}"; do
   zoom="${zooms[$i]}"
   limit="${limits[$i]}"
   clip="video-output/full-clips/${shot}.mp4"
-
-  if [[ "$i" -eq 0 ]]; then
-    duration=8
-    frames=240
-  else
-    duration=7
-    frames=210
-  fi
-
-  fadeout=$(awk "BEGIN {printf \"%.2f\", ${duration} - 0.22}")
+  duration=8
+  frames=240
+  fadeout=7.78
 
   ffmpeg -hide_banner -loglevel error -y \
     -loop 1 -framerate 30 -i "video-output/full-shots/${shot}.png" \
@@ -69,22 +68,22 @@ ffmpeg -hide_banner -loglevel error -y \
   -f concat -safe 0 -i video-output/full-clips.txt \
   -c copy \
   -movflags +faststart \
-  video-output/aisentica-full-silent.mp4
+  video-output/aisentica-contest-silent.mp4
 
 ffmpeg -hide_banner -loglevel error -y \
-  -i video-output/aisentica-full-silent.mp4 \
+  -i video-output/aisentica-contest-silent.mp4 \
   -i video-output/aisentica-voice.wav \
-  -filter_complex "[1:a]loudnorm=I=-16:TP=-1.5:LRA=11,apad=pad_dur=120[a]" \
+  -filter_complex "[1:a]loudnorm=I=-16:TP=-1.5:LRA=11,apad=pad_dur=168[a]" \
   -map 0:v:0 \
   -map "[a]" \
-  -t 120 \
+  -t 168 \
   -c:v copy \
   -c:a aac \
   -b:a 192k \
   -movflags +faststart \
-  video-output/aisentica-continuity-full-2min.mp4
+  video-output/aisentica-continuity-build-week-final.mp4
 
 ffprobe -v error \
   -show_entries format=duration:stream=width,height,r_frame_rate,codec_name \
   -of default=noprint_wrappers=1 \
-  video-output/aisentica-continuity-full-2min.mp4
+  video-output/aisentica-continuity-build-week-final.mp4
