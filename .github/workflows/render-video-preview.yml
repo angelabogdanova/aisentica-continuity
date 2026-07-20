@@ -1,0 +1,46 @@
+name: Render Video Preview
+
+on:
+  push:
+    branches:
+      - video/auto-capture
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BASE_URL: https://aisentica-continuity.vercel.app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install project and browser tooling
+        run: |
+          npm install
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Capture production scenes
+        run: node scripts/video/capture-preview.mjs
+
+      - name: Render 30-second editorial preview
+        run: bash scripts/video/render-preview.sh
+
+      - name: Upload preview and source frames
+        uses: actions/upload-artifact@v4
+        with:
+          name: aisentica-video-preview
+          path: |
+            video-output/aisentica-preview.mp4
+            video-output/shots/*.png
+          if-no-files-found: error
+          retention-days: 7
