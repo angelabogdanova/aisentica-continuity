@@ -1,0 +1,86 @@
+name: Render Aisentica Video
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - video/auto-capture
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      BASE_URL: https://aisentica-continuity.vercel.app
+      VOICE_1_URL: "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/d6f4ada7-32e0-4afd-8dab-25dddb6caf5a.mp3"
+      VOICE_2_URL: "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/7af7d7bb-c2df-42f6-b000-a6018c9466b5.mp3"
+      VOICE_3_URL: "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/4adf0750-038b-4aae-91f4-17c3b3a4fef5.mp3"
+      VOICE_4_URL: "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/d97a931e-95e0-4b2c-a892-28181cd11873.mp3"
+      VOICE_5_URL: "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/de2d8ea4-c4d1-4ef0-b28e-36371c7ba250.mp3"
+      VOICE_6_URL: "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/60804a64-fa61-49c4-a3fe-6ea54f423629.mp3"
+      VOICE_7_URL: "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/72ce621f-e636-404a-829c-081f7cb01c55.mp3"
+      VOICE_8_URL: "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/cb3652fe-1cde-41af-9f27-e220d659c1d2.mp3"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install project and browser tooling
+        run: |
+          npm install
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Capture production and repository scenes
+        run: |
+          node scripts/video/capture-preview.mjs
+          node scripts/video/capture-full.mjs
+
+      - name: Download competition narration segments
+        run: |
+          mkdir -p video-output
+          curl -L --fail --retry 3 --retry-delay 2 "$VOICE_1_URL" -o video-output/voice-1.mp3
+          curl -L --fail --retry 3 --retry-delay 2 "$VOICE_2_URL" -o video-output/voice-2.mp3
+          curl -L --fail --retry 3 --retry-delay 2 "$VOICE_3_URL" -o video-output/voice-3.mp3
+          curl -L --fail --retry 3 --retry-delay 2 "$VOICE_4_URL" -o video-output/voice-4.mp3
+          curl -L --fail --retry 3 --retry-delay 2 "$VOICE_5_URL" -o video-output/voice-5.mp3
+          curl -L --fail --retry 3 --retry-delay 2 "$VOICE_6_URL" -o video-output/voice-6.mp3
+          curl -L --fail --retry 3 --retry-delay 2 "$VOICE_7_URL" -o video-output/voice-7.mp3
+          curl -L --fail --retry 3 --retry-delay 2 "$VOICE_8_URL" -o video-output/voice-8.mp3
+          for f in video-output/voice-*.mp3; do file "$f"; done
+
+      - name: Assemble narration
+        run: bash scripts/video/assemble-voice.sh
+
+      - name: Render video preview
+        run: bash scripts/video/render-preview.sh
+
+      - name: Render final narrated competition video
+        run: bash scripts/video/render-full.sh
+
+      - name: Upload videos and source frames
+        uses: actions/upload-artifact@v4
+        with:
+          name: aisentica-build-week-video-package
+          path: |
+            video-output/aisentica-preview.mp4
+            video-output/aisentica-continuity-build-week-final.mp4
+            video-output/aisentica-voice.wav
+            video-output/shots/*.png
+            video-output/full-shots/*.png
+          if-no-files-found: error
+          retention-days: 7
