@@ -71,8 +71,8 @@ ffmpeg -y \
 
 ffmpeg -y \
   -i video-output/aisentica-full-silent.mp4 \
-  -i video-output/aisentica-voice.mp3 \
-  -filter_complex "[1:a]adelay=1200|1200,loudnorm=I=-16:TP=-1.5:LRA=11,apad=pad_dur=120[a]" \
+  -i video-output/aisentica-voice.wav \
+  -filter_complex "[1:a]loudnorm=I=-16:TP=-1.5:LRA=11,apad=pad_dur=120[a]" \
   -map 0:v:0 \
   -map "[a]" \
   -t 120 \
