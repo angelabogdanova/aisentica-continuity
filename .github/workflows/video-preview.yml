@@ -18,7 +18,11 @@ jobs:
     timeout-minutes: 35
     env:
       BASE_URL: https://aisentica-continuity.vercel.app
-      VOICE_URL: "https://www.aidocmaker.com/g0/audio?name=c51d102c2c534767b1468d3890caa08c"
+      VOICE_1_URL: "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/95df806d-2c66-4a05-9cbc-860b9ef96a3d.mp3"
+      VOICE_2_URL: "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/4031432c-7b1a-4e20-8350-94f88c335b33.mp3"
+      VOICE_3_URL: "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/a3c4d356-d74f-4f08-bede-7bfcb364862b.mp3"
+      VOICE_4_URL: "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/77a8e27f-9d80-4b36-b016-e1b8618bb242.mp3"
+      VOICE_5_URL: "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/061f5087-9db0-4e30-8cb3-7348f2c4bd4a.mp3"
 
     steps:
       - uses: actions/checkout@v4
@@ -43,11 +47,18 @@ jobs:
           node scripts/video/capture-preview.mjs
           node scripts/video/capture-full.mjs
 
-      - name: Download generated narration
+      - name: Download generated narration segments
         run: |
-          curl -L --fail --retry 3 --retry-delay 2 "$VOICE_URL" -o video-output/aisentica-voice.mp3
-          file video-output/aisentica-voice.mp3
-          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 video-output/aisentica-voice.mp3
+          mkdir -p video-output
+          curl -L --fail --retry 3 --retry-delay 2 "$VOICE_1_URL" -o video-output/voice-1.mp3
+          curl -L --fail --retry 3 --retry-delay 2 "$VOICE_2_URL" -o video-output/voice-2.mp3
+          curl -L --fail --retry 3 --retry-delay 2 "$VOICE_3_URL" -o video-output/voice-3.mp3
+          curl -L --fail --retry 3 --retry-delay 2 "$VOICE_4_URL" -o video-output/voice-4.mp3
+          curl -L --fail --retry 3 --retry-delay 2 "$VOICE_5_URL" -o video-output/voice-5.mp3
+          for f in video-output/voice-*.mp3; do file "$f"; done
+
+      - name: Assemble narration
+        run: bash scripts/video/assemble-voice.sh
 
       - name: Render video preview
         run: bash scripts/video/render-preview.sh
@@ -62,7 +73,7 @@ jobs:
           path: |
             video-output/aisentica-preview.mp4
             video-output/aisentica-continuity-full-2min.mp4
-            video-output/aisentica-voice.mp3
+            video-output/aisentica-voice.wav
             video-output/shots/*.png
             video-output/full-shots/*.png
           if-no-files-found: error
